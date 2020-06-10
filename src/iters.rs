@@ -18,6 +18,7 @@ pub struct DevTreeReserveEntryIter<'a> {
 }
 
 #[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
 struct AssociatedOffset<'a> (usize, core::marker::PhantomData<&'a [u8]>);
 
 impl<'a> AssociatedOffset<'a> {
@@ -75,7 +76,7 @@ impl<'a> Iterator for DevTreeReserveEntryIter<'a> {
 #[derive(Clone)]
 pub struct DevTreeIter<'a> {
     // TODO Replace with an associated offset
-    offset: usize,
+    offset: AssociatedOffset<'a>,
     current_prop_parent_off: Option<NonZeroUsize>,
     pub(crate) fdt: &'a DevTree<'a>,
 }
@@ -83,7 +84,7 @@ pub struct DevTreeIter<'a> {
 impl<'a> DevTreeIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
-            offset: fdt.off_dt_struct(),
+            offset: AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf),
             current_prop_parent_off: None,
             fdt,
         }
@@ -94,7 +95,7 @@ impl<'a> DevTreeIter<'a> {
             Some(offset) => Some(DevTreeIter {
                 fdt: self.fdt,
                 current_prop_parent_off: self.current_prop_parent_off,
-                offset: offset.get(),
+                offset: AssociatedOffset::new(offset.get(), self.fdt.buf),
             }),
             None => None,
         }
@@ -170,19 +171,18 @@ impl<'a> DevTreeIter<'a> {
 
     fn next_devtree_item(&mut self) -> Option<DevTreeItem<'a>> {
         loop {
-            let mut offset = AssociatedOffset::new(self.offset, self.fdt.buf);
-            let res = unsafe { next_devtree_token(self.fdt.buf, &mut offset) };
-            let ret = match res {
+            let old_offset = self.offset;
+            // Safe because we only pass offsets which are returned by next_devtree_token.
+            let res = unsafe { next_devtree_token(self.fdt.buf, &mut self.offset) };
+            match res {
                 Ok(Some(ParsedTok::BeginNode(node))) => {
                     self.current_prop_parent_off = unsafe {
-                        Some(NonZeroUsize::new_unchecked(self.offset))
+                        Some(NonZeroUsize::new_unchecked(old_offset.0))
                     };
-                    let mut next_iter = self.clone();
-                    next_iter.offset = offset.0;
-                    Some(DevTreeItem::Node(DevTreeNode {
-                        parse_iter: next_iter,
+                    return Some(DevTreeItem::Node(DevTreeNode {
+                        parse_iter: self.clone(),
                         name: bytes_as_str(node.name).map_err(|e| e.into()),
-                    }))
+                    }));
                 },
                 Ok(Some(ParsedTok::Prop(prop))) =>  {
                     // Prop must come after a node.
@@ -190,25 +190,19 @@ impl<'a> DevTreeIter<'a> {
                         Some(n) => n,
                         None => return None, // Devtree error - end iteration
                     };
-                    Some(DevTreeItem::Prop(DevTreeProp {
+                    return Some(DevTreeItem::Prop(DevTreeProp {
                         parent_iter: prev_node,
                         propbuf: prop.prop_buf,
                         nameoff: prop.name_offset.0,
-                    }))
+                    }));
                 },
                 Ok(Some(ParsedTok::EndNode)) => {
                     // The current node has ended. 
                     // No properties may follow until the next node starts.
                     self.current_prop_parent_off = None;
-                    None
                 },
-                Ok(Some(_)) => None,
+                Ok(Some(_)) => continue,
                 _ => return None,
-            };
-
-            self.offset = offset.0;
-            if ret.is_some() {
-                return ret;
             }
         }
     }
