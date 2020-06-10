@@ -19,17 +19,14 @@ pub struct DevTreeReserveEntryIter<'a> {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
-struct AssociatedOffset<'a> (usize, core::marker::PhantomData<&'a [u8]>);
+struct AssociatedOffset<'a>(usize, core::marker::PhantomData<&'a [u8]>);
 
 impl<'a> AssociatedOffset<'a> {
-    fn new(val: usize, buf: &'a[u8]) -> Self {
-        // NOTE: Doesn't even check alignment. 
+    fn new(val: usize, buf: &'a [u8]) -> Self {
+        // NOTE: Doesn't even check alignment.
         // (Both size and alignment must be guarunteed elsewhere.)
         assert!(val < buf.len());
-        Self (
-            val,
-            core::marker::PhantomData,
-        )
+        Self(val, core::marker::PhantomData)
     }
 }
 
@@ -75,9 +72,16 @@ impl<'a> Iterator for DevTreeReserveEntryIter<'a> {
 /// An iterator over all [`DevTreeItem`] objects.
 #[derive(Clone)]
 pub struct DevTreeIter<'a> {
-    // TODO Replace with an associated offset
-    offset: AssociatedOffset<'a>,
+    /// Offset of the last opened Device Tree Node.
+    /// This is used to set properties' parent DevTreeNode.
+    ///
+    /// As defined by the spec, DevTreeProps must preceed Node definitions.
+    /// Therefore, once a node has been closed this offset is reset to None to indicate no
+    /// properties should follow.
     current_prop_parent_off: Option<NonZeroUsize>,
+
+    /// Current offset into the flattened dt_struct section of the device tree.
+    offset: AssociatedOffset<'a>,
     pub(crate) fdt: &'a DevTree<'a>,
 }
 
@@ -176,15 +180,14 @@ impl<'a> DevTreeIter<'a> {
             let res = unsafe { next_devtree_token(self.fdt.buf, &mut self.offset) };
             match res {
                 Ok(Some(ParsedTok::BeginNode(node))) => {
-                    self.current_prop_parent_off = unsafe {
-                        Some(NonZeroUsize::new_unchecked(old_offset.0))
-                    };
+                    self.current_prop_parent_off =
+                        unsafe { Some(NonZeroUsize::new_unchecked(old_offset.0)) };
                     return Some(DevTreeItem::Node(DevTreeNode {
                         parse_iter: self.clone(),
                         name: bytes_as_str(node.name).map_err(|e| e.into()),
                     }));
-                },
-                Ok(Some(ParsedTok::Prop(prop))) =>  {
+                }
+                Ok(Some(ParsedTok::Prop(prop))) => {
                     // Prop must come after a node.
                     let prev_node = match self.current_node_itr() {
                         Some(n) => n,
@@ -195,12 +198,12 @@ impl<'a> DevTreeIter<'a> {
                         propbuf: prop.prop_buf,
                         nameoff: prop.name_offset.0,
                     }));
-                },
+                }
                 Ok(Some(ParsedTok::EndNode)) => {
-                    // The current node has ended. 
+                    // The current node has ended.
                     // No properties may follow until the next node starts.
                     self.current_prop_parent_off = None;
-                },
+                }
                 Ok(Some(_)) => continue,
                 _ => return None,
             }
@@ -328,7 +331,6 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
     }
 }
 
-
 struct ParsedBeginNode<'a> {
     name: &'a [u8],
 }
@@ -346,7 +348,11 @@ enum ParsedTok<'a> {
 }
 
 #[inline]
-unsafe fn nread_bstring0(buf: &[u8], pos: usize, len: usize) -> crate::buf_util::SliceReadResult<&[u8]> {
+unsafe fn nread_bstring0(
+    buf: &[u8],
+    pos: usize,
+    len: usize,
+) -> crate::buf_util::SliceReadResult<&[u8]> {
     let end = core::cmp::min(len + pos, buf.len());
     for i in pos..end {
         if buf[i] == 0 {
@@ -356,7 +362,10 @@ unsafe fn nread_bstring0(buf: &[u8], pos: usize, len: usize) -> crate::buf_util:
     Err(crate::buf_util::SliceReadError::UnexpectedEndOfInput)
 }
 
-unsafe fn next_devtree_token<'a>(buf: &'a [u8], off: &mut AssociatedOffset<'a>) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
+unsafe fn next_devtree_token<'a>(
+    buf: &'a [u8],
+    off: &mut AssociatedOffset<'a>,
+) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
     // These are guarunteed.
     // We only produce associated offsets that are aligned to 32 bits and within the buffer.
     assert!(buf.as_ptr().add(off.0) as usize % size_of::<u32>() == 0);
@@ -376,9 +385,7 @@ unsafe fn next_devtree_token<'a>(buf: &'a [u8], off: &mut AssociatedOffset<'a>) 
             // Per spec - align back to u32.
             off.0 += buf.as_ptr().add(off.0).align_offset(size_of::<u32>());
 
-            Ok(Some(ParsedTok::BeginNode(ParsedBeginNode {
-                name,
-            })))
+            Ok(Some(ParsedTok::BeginNode(ParsedBeginNode { name })))
         }
         Some(FdtTok::Prop) => {
             // Re-interpret the data as a fdt_header
@@ -406,12 +413,8 @@ unsafe fn next_devtree_token<'a>(buf: &'a [u8], off: &mut AssociatedOffset<'a>) 
                 prop_buf,
             })))
         }
-        Some(FdtTok::EndNode) => {
-            Ok(Some(ParsedTok::EndNode))
-        }
-        Some(FdtTok::Nop) => {
-            Ok(Some(ParsedTok::Nop))
-        }
+        Some(FdtTok::EndNode) => Ok(Some(ParsedTok::EndNode)),
+        Some(FdtTok::Nop) => Ok(Some(ParsedTok::Nop)),
         Some(FdtTok::End) => Ok(None),
         None => {
             // Invalid token
