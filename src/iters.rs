@@ -347,21 +347,6 @@ enum ParsedTok<'a> {
     Nop,
 }
 
-#[inline]
-unsafe fn nread_bstring0(
-    buf: &[u8],
-    pos: usize,
-    len: usize,
-) -> crate::buf_util::SliceReadResult<&[u8]> {
-    let end = core::cmp::min(len + pos, buf.len());
-    for i in pos..end {
-        if buf[i] == 0 {
-            return Ok(&buf[pos..i]);
-        }
-    }
-    Err(crate::buf_util::SliceReadError::UnexpectedEndOfInput)
-}
-
 unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
     off: &mut AssociatedOffset<'a>,
@@ -377,8 +362,7 @@ unsafe fn next_devtree_token<'a>(
     match FromPrimitive::from_u32(fdt_tok_val) {
         Some(FdtTok::BeginNode) => {
             // Read the name (or return an error if the device tree is incorrectly formatted).
-            //let name = buf.nread_bstring0(off.0, spec::MAX_NODE_NAME_LEN - 1)?;
-            let name = nread_bstring0(buf, off.0, spec::MAX_NODE_NAME_LEN - 1)?;
+            let name = buf.nread_bstring0(off.0, spec::MAX_NODE_NAME_LEN - 1)?;
 
             // Move to the end of name (adding null byte).
             off.0 += name.len() + 1;

@@ -8,13 +8,13 @@ pub enum SliceReadError {
 
 pub type SliceReadResult<T> = Result<T, SliceReadError>;
 
-pub trait SliceRead {
+pub trait SliceRead<'a> {
     unsafe fn unsafe_read_be_u32(&self, pos: usize) -> SliceReadResult<u32>;
     unsafe fn unsafe_read_be_u64(&self, pos: usize) -> SliceReadResult<u64>;
     unsafe fn read_be_u32(&self, pos: usize) -> SliceReadResult<u32>;
     unsafe fn read_be_u64(&self, pos: usize) -> SliceReadResult<u64>;
-    unsafe fn read_bstring0(&self, pos: usize) -> SliceReadResult<&[u8]>;
-    unsafe fn nread_bstring0(&self, pos: usize, len: usize) -> SliceReadResult<&[u8]>;
+    unsafe fn read_bstring0(&self, pos: usize) -> SliceReadResult<&'a [u8]>;
+    unsafe fn nread_bstring0(&self, pos: usize, len: usize) -> SliceReadResult<&'a [u8]>;
 }
 
 macro_rules! unchecked_be_read {
@@ -39,7 +39,7 @@ macro_rules! be_read {
     };
 }
 
-impl<'a> SliceRead for &'a [u8] {
+impl<'a> SliceRead<'a> for &'a [u8] {
     #[inline]
     unsafe fn unsafe_read_be_u32(&self, pos: usize) -> SliceReadResult<u32> {
         unchecked_be_read!(self, u32, pos)
@@ -61,7 +61,7 @@ impl<'a> SliceRead for &'a [u8] {
     }
 
     #[inline]
-    unsafe fn read_bstring0(&self, pos: usize) -> SliceReadResult<&[u8]> {
+    unsafe fn read_bstring0(&self, pos: usize) -> SliceReadResult<&'a [u8]> {
         for i in pos..self.len() {
             if self[i] == 0 {
                 return Ok(&self[pos..i]);
@@ -71,10 +71,10 @@ impl<'a> SliceRead for &'a [u8] {
     }
 
     #[inline]
-    unsafe fn nread_bstring0(&self, pos: usize, len: usize) -> SliceReadResult<&[u8]> {
+    unsafe fn nread_bstring0(&self, pos: usize, len: usize) -> SliceReadResult<&'a [u8]> {
         let end = core::cmp::min(len + pos, self.len());
         for i in pos..end {
-            if self[i] == 0 {
+            if *self.get_unchecked(i) == 0 {
                 return Ok(&self[pos..i]);
             }
         }
