@@ -40,6 +40,7 @@ extern crate memoffset;
 mod buf_util;
 pub mod iters;
 pub mod spec;
+pub mod index;
 
 use buf_util::{SliceRead, SliceReadError};
 use core::convert::From;
@@ -80,6 +81,20 @@ const fn verify_offset_aligned<T>(offset: usize) -> Result<usize, DevTreeError> 
     let i: [Result<usize, DevTreeError>; 2] = [Err(DevTreeError::ParseError), Ok(offset)];
     i[is_aligned::<T>(offset) as usize]
 }
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct AssociatedOffset<'a>(usize, core::marker::PhantomData<&'a [u8]>);
+
+impl<'a> AssociatedOffset<'a> {
+    pub(crate) fn new(val: usize, buf: &'a [u8]) -> Self {
+        // NOTE: Doesn't even check alignment.
+        // (Both size and alignment must be guarunteed elsewhere.)
+        assert!(val < buf.len());
+        Self(val, core::marker::PhantomData)
+    }
+}
+
 
 /// An error describe parsing problems when creating device trees.
 #[derive(Debug, Clone, Copy)]

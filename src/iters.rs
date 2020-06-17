@@ -9,25 +9,12 @@ use super::buf_util::SliceRead;
 use super::spec;
 use super::spec::{fdt_prop_header, fdt_reserve_entry, FdtTok};
 use super::{DevTree, DevTreeError, DevTreeItem, DevTreeNode, DevTreeProp};
-use crate::bytes_as_str;
+use crate::{bytes_as_str, AssociatedOffset};
 
 #[derive(Clone)]
 pub struct DevTreeReserveEntryIter<'a> {
     offset: usize,
     fdt: &'a DevTree<'a>,
-}
-
-#[repr(transparent)]
-#[derive(Clone, Copy, Debug)]
-struct AssociatedOffset<'a>(usize, core::marker::PhantomData<&'a [u8]>);
-
-impl<'a> AssociatedOffset<'a> {
-    fn new(val: usize, buf: &'a [u8]) -> Self {
-        // NOTE: Doesn't even check alignment.
-        // (Both size and alignment must be guarunteed elsewhere.)
-        assert!(val < buf.len());
-        Self(val, core::marker::PhantomData)
-    }
 }
 
 impl<'a> DevTreeReserveEntryIter<'a> {
@@ -331,23 +318,23 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
     }
 }
 
-struct ParsedBeginNode<'a> {
+pub(crate) struct ParsedBeginNode<'a> {
     name: &'a [u8],
 }
 
-struct ParsedProp<'a> {
+pub(crate) struct ParsedProp<'a> {
     prop_buf: &'a [u8],
     name_offset: AssociatedOffset<'a>,
 }
 
-enum ParsedTok<'a> {
+pub(crate) enum ParsedTok<'a> {
     BeginNode(ParsedBeginNode<'a>),
     EndNode,
     Prop(ParsedProp<'a>),
     Nop,
 }
 
-unsafe fn next_devtree_token<'a>(
+pub(crate) unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
     off: &mut AssociatedOffset<'a>,
 ) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
