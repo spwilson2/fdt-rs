@@ -36,6 +36,7 @@
 
 use crate::*;
 use crate::iters;
+use core::mem::align_of;
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
 struct DevTreeIndexProp<'dt> {
@@ -49,6 +50,13 @@ struct DevTreeIndexNode<'dt, 'b> {
     children: &'b [DevTreeIndexNode<'dt, 'b>],
     props: &'b [DevTreeIndexProp<'dt>],
     fdt_offset: AssociatedOffset<'dt>,
+}
+
+/// Returns the minimum alignment for items stored inside the [`DevTreeIndex`].
+const fn idx_elem_align() -> usize {
+    let l = align_of::<DevTreeIndexProp>();
+    let r = align_of::<DevTreeIndexNode>();
+    [l, r][(l > r) as usize]
 }
 
 /// TODO
@@ -65,6 +73,7 @@ impl<'b, 'dt: 'b> DevTreeIndex<'dt, 'b> {
         // TODO Initial size (base components - e.g. root pointer?)
         let mut size = 0usize;
 
+        // TODO Check based on alignment
         for item in fdt.items() {
             match item {
                 DevTreeItem::Node(n) => {
@@ -81,7 +90,6 @@ impl<'b, 'dt: 'b> DevTreeIndex<'dt, 'b> {
     pub unsafe fn new(fdt: DevTree<'dt>, buf: &'b mut [u8]) -> Self {
 
         // TODO Check Alignment
-        // Check Len
         assert!(buf.len() >= Self::required_size(&fdt));
 
 
@@ -129,16 +137,20 @@ impl<'b, 'dt: 'b> DevTreeIndex<'dt, 'b> {
         //
         // As we finish parsing nodes (we hit ParsedTok::EndNode)
         // We then mem move the parsed grandchild into Permenent mem and resize limits
-        let mut addr = AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf);
+        let mut buf_addr = AssociatedOffset::new(0, buf);
+        let mut fdt_addr = AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf);
+        asse
+
         loop {
             // Safe because we only pass offsets which are returned by next_devtree_token.
-            let res = unsafe { iters::next_devtree_token(fdt.buf, &mut addr) };
+            let res = unsafe { iters::next_devtree_token(fdt.buf, &mut fdt_addr) };
 
             match res {
                 Ok(Some(iters::ParsedTok::BeginNode(node))) => {
-
                     if let Some(n) = current_node {
                         // TODO If current_node add this discovered node to our node list.
+
+                        buf_addr
                     }
 
                     nodes[node_idx].parent = current_node;
