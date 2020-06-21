@@ -38,6 +38,22 @@ struct DevTreeIndexNode<'dt, 'i: 'dt> {
     name: &'dt [u8],
     _index: PhantomData<&'i [u8]>,
 }
+
+impl<'dt, 'i: 'dt> DevTreeIndexNode<'dt, 'i> {
+    fn new(
+        parent: Option<*const DevTreeIndexNode<'dt, 'i>>,
+        node: iters::ParsedBeginNode<'dt>,
+    ) -> Self {
+        Self {
+            parent,
+            children: Vec::new(),
+            props: Vec::new(),
+            name: node.name,
+            _index: PhantomData,
+        }
+    }
+}
+
 pub struct DevTreeIndex<'dt, 'i: 'dt> {
     fdt: &'i DevTree<'dt>,
     root: Box<DevTreeIndexNode<'dt, 'i>>,
@@ -51,13 +67,7 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         for tok in iter {
             match tok {
                 iters::ParsedTok::BeginNode(node) => {
-                    return Ok(Box::new(DevTreeIndexNode {
-                        parent: None,
-                        children: Vec::new(),
-                        props: Vec::new(),
-                        name: node.name,
-                        _index: PhantomData,
-                    }))
+                    return Ok(Box::new(DevTreeIndexNode::new(None, node)))
                 }
                 iters::ParsedTok::Nop => (),
                 _ => return Err(DevTreeError::ParseError),
@@ -79,13 +89,9 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
             match tok {
                 iters::ParsedTok::BeginNode(node) => {
                     // Allocate node from parsed node.
-                    cur_node.children.push(DevTreeIndexNode {
-                        parent: Some(cur_node),
-                        children: Vec::new(),
-                        props: Vec::new(),
-                        name: node.name,
-                        _index: PhantomData,
-                    });
+                    cur_node
+                        .children
+                        .push(DevTreeIndexNode::new(Some(cur_node), node));
                     // (Unwrap safe, we just pushed a node.)
                     unsafe {
                         cur_node = cur_node.children.last_mut().unsafe_unwrap();
@@ -135,3 +141,6 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         Ok(Self { root, fdt })
     }
 }
+
+
+// TODO Fuck load of utility methods.
