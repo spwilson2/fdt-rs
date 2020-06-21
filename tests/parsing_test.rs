@@ -127,3 +127,18 @@ fn find_all_compatible() {
         assert!(count == exp_count);
     }
 }
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub mod alloc_tests {
+    use super::*;
+    use fdt_rs::index;
+
+    // Test that we can create an index from a valid device tree
+    #[test]
+    fn create_index() {
+        unsafe {
+            let devtree = DevTree::new(FDT).unwrap();
+            index::DevTreeIndex::new(&devtree);
+        }
+    }
+}

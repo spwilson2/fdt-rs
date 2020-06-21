@@ -19,10 +19,10 @@ pub struct DevTreeReserveEntryIter<'a> {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
-struct AssociatedOffset<'a>(usize, core::marker::PhantomData<&'a [u8]>);
+pub(crate) struct AssociatedOffset<'a>(usize, core::marker::PhantomData<&'a [u8]>);
 
 impl<'a> AssociatedOffset<'a> {
-    fn new(val: usize, buf: &'a [u8]) -> Self {
+    pub(crate) fn new(val: usize, buf: &'a [u8]) -> Self {
         // NOTE: Doesn't even check alignment.
         // (Both size and alignment must be guarunteed elsewhere.)
         assert!(val < buf.len());
@@ -331,16 +331,44 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
     }
 }
 
-struct ParsedBeginNode<'a> {
-    name: &'a [u8],
+pub(crate) struct DevTreeParseIter<'a> {
+    offset: AssociatedOffset<'a>,
+    fdt: &'a DevTree<'a>,
 }
 
-struct ParsedProp<'a> {
-    prop_buf: &'a [u8],
-    name_offset: AssociatedOffset<'a>,
+impl<'a> DevTreeParseIter<'a> {
+    pub(crate) fn new(fdt: &'a DevTree) -> Self {
+        Self {
+            offset: AssociatedOffset::new(fdt.off_mem_rsvmap(), fdt.buf),
+            fdt,
+        }
+    }
 }
 
-enum ParsedTok<'a> {
+impl<'a> Iterator for DevTreeParseIter<'a> {
+    type Item = ParsedTok<'a>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        // Safe because we're passing an unmodified (by us) offset.
+        // next_devtree_token guaruntees alignment and out-of-bounds won't occur.
+        match unsafe {next_devtree_token(self.fdt.buf, &mut self.offset) } {
+            Ok(tok) => tok,
+            _ => None,
+        }
+    }
+}
+
+pub(crate) struct ParsedBeginNode<'a> {
+    pub(crate) name: &'a [u8],
+}
+
+pub(crate) struct ParsedProp<'a> {
+    pub(crate) prop_buf: &'a [u8],
+    pub(crate) name_offset: AssociatedOffset<'a>,
+}
+
+pub(crate) enum ParsedTok<'a> {
     BeginNode(ParsedBeginNode<'a>),
     EndNode,
     Prop(ParsedProp<'a>),

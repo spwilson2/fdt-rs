@@ -31,10 +31,14 @@ version = "1.0.0"
 default-features = false
 optional = true
 
+[dependencies]
+unsafe_unwrap = "0.1.0"
+
 [build-dependencies]
 rustc_version = "0.2"
 
 [features]
 default = ["std"]
 std = []
+alloc = []
 doctest = []

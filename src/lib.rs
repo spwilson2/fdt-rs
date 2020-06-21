@@ -31,15 +31,21 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(feature = "std")]
 extern crate core;
+#[cfg(any(feature = "std", feature = "alloc"))]
+extern crate alloc;
 #[macro_use]
 extern crate cfg_if;
 extern crate endian_type_rs as endian_type;
 #[macro_use]
 extern crate memoffset;
+extern crate unsafe_unwrap;
 
 mod buf_util;
 pub mod iters;
 pub mod spec;
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+pub mod index;
 
 use buf_util::{SliceRead, SliceReadError};
 use core::convert::From;
