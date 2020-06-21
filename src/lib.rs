@@ -46,11 +46,14 @@ pub mod spec;
 
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub mod index;
+pub(crate) mod fdt_util;
 
-use buf_util::{SliceRead, SliceReadError};
 use core::convert::From;
 use core::mem::size_of;
+
+use buf_util::{SliceRead, SliceReadError};
 use spec::{fdt_header, Phandle, FDT_MAGIC};
+use fdt_util::props::DevTreePropState;
 
 cfg_if! {
     if #[cfg(feature = "ascii")] {
@@ -455,15 +458,19 @@ impl<'a> DevTreeNode<'a> {
 #[derive(Clone)]
 pub struct DevTreeProp<'a> {
     parent_iter: iters::DevTreeIter<'a>,
-    propbuf: &'a [u8],
-    nameoff: usize,
+    state: DevTreePropState<'a>,
 }
 
 impl<'a> DevTreeProp<'a> {
+    #[inline]
+    fn fdt(&'a self) -> &'a DevTree<'a> {
+        self.parent_iter.fdt
+    }
+
     /// Returns the name of the property within the device tree.
     #[inline]
-    pub fn name(&self) -> Result<&'a Str, DevTreeError> {
-        self.get_prop_str()
+    pub fn name(&'a self) -> Result<&'a Str, DevTreeError> {
+        self.state.name(self.fdt())
     }
 
     /// Returns the node which this property is attached to
@@ -477,7 +484,7 @@ impl<'a> DevTreeProp<'a> {
     #[inline]
     #[must_use]
     pub fn length(&self) -> usize {
-        self.propbuf.len()
+        self.state.length()
     }
 
     /// Read a big-endian [`u32`] from the provided offset in this device tree property's value.
@@ -497,9 +504,7 @@ impl<'a> DevTreeProp<'a> {
     /// This method will *not* panic.
     #[inline]
     pub unsafe fn get_u32(&self, offset: usize) -> Result<u32, DevTreeError> {
-        self.propbuf
-            .read_be_u32(offset)
-            .or(Err(DevTreeError::InvalidOffset))
+        self.state.get_u32(offset)
     }
 
     /// Read a big-endian [`u64`] from the provided offset in this device tree property's value.
@@ -513,9 +518,7 @@ impl<'a> DevTreeProp<'a> {
     /// See the safety note of [`DevTreeProp::get_u32`]
     #[inline]
     pub unsafe fn get_u64(&self, offset: usize) -> Result<u64, DevTreeError> {
-        self.propbuf
-            .read_be_u64(offset)
-            .or(Err(DevTreeError::InvalidOffset))
+        self.state.get_u64(offset)
     }
 
     /// A Phandle is simply defined as a u32 value, as such this method performs the same action as
@@ -526,9 +529,7 @@ impl<'a> DevTreeProp<'a> {
     /// See the safety note of [`DevTreeProp::get_u32`]
     #[inline]
     pub unsafe fn get_phandle(&self, offset: usize) -> Result<Phandle, DevTreeError> {
-        self.propbuf
-            .read_be_u32(offset)
-            .or(Err(DevTreeError::InvalidOffset))
+        self.state.get_phandle(offset)
     }
 
     /// Returns the string property as a string if it can be parsed as one.
@@ -537,7 +538,7 @@ impl<'a> DevTreeProp<'a> {
     /// See the safety note of [`DevTreeProp::get_u32`]
     #[inline]
     pub unsafe fn get_str(&'a self) -> Result<&'a Str, DevTreeError> {
-        self.get_str_at(0)
+        self.state.get_str()
     }
 
     /// Returns the string at the given offset within the property.
@@ -546,12 +547,7 @@ impl<'a> DevTreeProp<'a> {
     /// See the safety note of [`DevTreeProp::get_u32`]
     #[inline]
     pub unsafe fn get_str_at(&'a self, offset: usize) -> Result<&'a Str, DevTreeError> {
-        match self.get_string(offset, true) {
-            // Note, unwrap invariant is safe.
-            // get_string returns Some(s) when second opt is true
-            Ok((_, s)) => Ok(s.unwrap()),
-            Err(e) => Err(e),
-        }
+        self.state.get_str_at(offset)
     }
 
     /// # Safety
@@ -559,7 +555,7 @@ impl<'a> DevTreeProp<'a> {
     /// See the safety note of [`DevTreeProp::get_u32`]
     #[inline]
     pub unsafe fn get_str_count(&self) -> Result<usize, DevTreeError> {
-        self.iter_str_list(None)
+        self.state.get_str_count()
     }
 
     /// Fills the supplied slice of references with [`Str`] slices parsed from the given property.
@@ -604,7 +600,7 @@ impl<'a> DevTreeProp<'a> {
         &'a self,
         list: &mut [Option<&'a Str>],
     ) -> Result<usize, DevTreeError> {
-        self.iter_str_list(Some(list))
+        self.state.get_strlist(list)
     }
 
     /// # Safety
@@ -612,67 +608,7 @@ impl<'a> DevTreeProp<'a> {
     /// See the safety note of [`DevTreeProp::get_u32`]
     #[inline]
     pub unsafe fn get_raw(&self) -> &'a [u8] {
-        self.propbuf
-    }
-
-    fn get_prop_str(&self) -> Result<&'a Str, DevTreeError> {
-        unsafe {
-            let str_offset = self.parent_iter.fdt.off_dt_strings() + self.nameoff;
-            let name = self.parent_iter.fdt.buf.read_bstring0(str_offset)?;
-            Ok(bytes_as_str(name)?)
-        }
-    }
-
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    unsafe fn get_string(
-        &'a self,
-        offset: usize,
-        parse: bool,
-    ) -> Result<(usize, Option<&'a Str>), DevTreeError> {
-        match self.propbuf.read_bstring0(offset) {
-            Ok(res_u8) => {
-                // Include null byte
-                let len = res_u8.len() + 1;
-
-                if parse {
-                    match bytes_as_str(res_u8) {
-                        Ok(s) => Ok((len, Some(s))),
-                        Err(e) => Err(e.into()),
-                    }
-                } else {
-                    Ok((len, None))
-                }
-            }
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    unsafe fn iter_str_list(
-        &'a self,
-        mut list_opt: Option<&mut [Option<&'a Str>]>,
-    ) -> Result<usize, DevTreeError> {
-        let mut offset = 0;
-        for count in 0.. {
-            if offset == self.length() {
-                return Ok(count);
-            }
-
-            let (len, s) = self.get_string(offset, list_opt.is_some())?;
-            offset += len;
-
-            if let Some(list) = list_opt.as_deref_mut() {
-                // Note, unwrap invariant is safe.
-                // get_string returns Some(s) if we ask it to parse and it returns Ok
-                (*list)[count] = Some(s.unwrap());
-            };
-        }
-        // For some reason infinite for loops need unreachable.
-        unreachable!();
+        self.state.get_raw()
     }
 }
 

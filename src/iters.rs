@@ -11,6 +11,8 @@ use super::spec::{fdt_prop_header, fdt_reserve_entry, FdtTok};
 use super::{DevTree, DevTreeError, DevTreeItem, DevTreeNode, DevTreeProp};
 use crate::bytes_as_str;
 
+use crate::DevTreePropState;
+
 #[derive(Clone)]
 pub struct DevTreeReserveEntryIter<'a> {
     offset: usize,
@@ -19,7 +21,7 @@ pub struct DevTreeReserveEntryIter<'a> {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct AssociatedOffset<'a>(usize, core::marker::PhantomData<&'a [u8]>);
+pub(crate) struct AssociatedOffset<'a>(pub usize, core::marker::PhantomData<&'a [u8]>);
 
 impl<'a> AssociatedOffset<'a> {
     pub(crate) fn new(val: usize, buf: &'a [u8]) -> Self {
@@ -195,8 +197,10 @@ impl<'a> DevTreeIter<'a> {
                     };
                     return Some(DevTreeItem::Prop(DevTreeProp {
                         parent_iter: prev_node,
-                        propbuf: prop.prop_buf,
-                        nameoff: prop.name_offset.0,
+                        state: DevTreePropState {
+                            propbuf: prop.prop_buf,
+                            nameoff: AssociatedOffset::new(prop.name_offset.0, self.fdt.buf),
+                        },
                     }));
                 }
                 Ok(Some(ParsedTok::EndNode)) => {
