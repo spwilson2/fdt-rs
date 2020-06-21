@@ -16,12 +16,12 @@ use crate::*;
 use core::marker::PhantomData;
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
-pub struct DevTreeIndexProp<'dt> {
+pub struct DTIProp<'dt> {
     propbuf: &'dt [u8],
     nameoff: AssociatedOffset<'dt>,
 }
 
-impl<'dt> From<iters::ParsedProp<'dt>> for DevTreeIndexProp<'dt> {
+impl<'dt> From<iters::ParsedProp<'dt>> for DTIProp<'dt> {
     fn from(prop: iters::ParsedProp<'dt>) -> Self {
         Self {
             propbuf: prop.prop_buf,
@@ -31,17 +31,17 @@ impl<'dt> From<iters::ParsedProp<'dt>> for DevTreeIndexProp<'dt> {
 }
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
-struct DevTreeIndexNode<'dt, 'i: 'dt> {
-    parent: Option<*const DevTreeIndexNode<'dt, 'i>>,
-    children: Vec<DevTreeIndexNode<'dt, 'i>>,
-    props: Vec<DevTreeIndexProp<'dt>>,
+struct DTINode<'dt, 'i: 'dt> {
+    parent: Option<*const DTINode<'dt, 'i>>,
+    children: Vec<DTINode<'dt, 'i>>,
+    props: Vec<DTIProp<'dt>>,
     name: &'dt [u8],
     _index: PhantomData<&'i [u8]>,
 }
 
-impl<'dt, 'i: 'dt> DevTreeIndexNode<'dt, 'i> {
+impl<'dt, 'i: 'dt> DTINode<'dt, 'i> {
     fn new(
-        parent: Option<*const DevTreeIndexNode<'dt, 'i>>,
+        parent: Option<*const DTINode<'dt, 'i>>,
         node: iters::ParsedBeginNode<'dt>,
     ) -> Self {
         Self {
@@ -56,18 +56,18 @@ impl<'dt, 'i: 'dt> DevTreeIndexNode<'dt, 'i> {
 
 pub struct DevTreeIndex<'dt, 'i: 'dt> {
     fdt: &'i DevTree<'dt>,
-    root: Box<DevTreeIndexNode<'dt, 'i>>,
+    root: Box<DTINode<'dt, 'i>>,
 }
 
 impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
     fn get_root_node(
         iter: &mut iters::DevTreeParseIter<'dt>,
-    ) -> Result<Box<DevTreeIndexNode<'dt, 'i>>, DevTreeError> {
+    ) -> Result<Box<DTINode<'dt, 'i>>, DevTreeError> {
         // Prime the initial current_node
         for tok in iter {
             match tok {
                 iters::ParsedTok::BeginNode(node) => {
-                    return Ok(Box::new(DevTreeIndexNode::new(None, node)))
+                    return Ok(Box::new(DTINode::new(None, node)))
                 }
                 iters::ParsedTok::Nop => (),
                 _ => return Err(DevTreeError::ParseError),
@@ -91,7 +91,7 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
                     // Allocate node from parsed node.
                     cur_node
                         .children
-                        .push(DevTreeIndexNode::new(Some(cur_node), node));
+                        .push(DTINode::new(Some(cur_node), node));
                     // (Unwrap safe, we just pushed a node.)
                     unsafe {
                         cur_node = cur_node.children.last_mut().unsafe_unwrap();
@@ -101,7 +101,7 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
                     if !in_node_header {
                         return Err(DevTreeError::ParseError);
                     }
-                    cur_node.props.push(DevTreeIndexProp::from(prop));
+                    cur_node.props.push(DTIProp::from(prop));
                 }
                 iters::ParsedTok::EndNode => {
                     // Cast the current node's *const parent pointer into a mutable reference.
@@ -130,7 +130,7 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
                     //     not access the data within the UnsafeCell until that reference expires.
                     unsafe {
                         let n_ref = cur_node.parent.ok_or(DevTreeError::ParseError)?;
-                        cur_node = &mut *(n_ref as *mut DevTreeIndexNode<'dt, 'i>);
+                        cur_node = &mut *(n_ref as *mut DTINode<'dt, 'i>);
                     }
                     in_node_header = false;
                 }
@@ -142,5 +142,62 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
     }
 }
 
+//pub struct DevTreeIndexNode<'dt, 'i: 'dt> {
+//    pub index: &'i DevTreeIndex<'dt, 'i>,
+//    node: &'i DTINode<'dt, 'i>,
+//}
+//
+//impl<'dt, 'i: 'dt> DevTreeIndexNode<'dt, 'i> {
+//    fn new(node: &'i DTINode<'dt, 'i>, index: DevTreeIndex<'dt, 'i>) -> Self {
+//        Self {
+//            node,
+//            index
+//        }
+//    }
+//}
+#[derive(Clone)]
+pub struct DevTreeIndexNode<'dt, 'i: 'dt, 'a: 'i> {
+    pub index: &'a DevTreeIndex<'dt, 'i>,
+    node: &'a DTINode<'dt, 'i>,
+}
+
+impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexNode<'dt, 'i, 'a> {
+    fn new(node: &'a DTINode<'dt, 'i>, index: &'a DevTreeIndex<'dt, 'i>) -> Self {
+        Self {
+            node,
+            index
+        }
+    }
+}
+
+// TODO Note iterator
+/// An interator over [`DevTreeNode`] objects in the [`DevTree`]
+#[derive(Clone)]
+pub struct DevTreeIndexNodeIter<'dt, 'i: 'dt, 'a: 'i> {
+    index_node: DevTreeIndexNode<'dt, 'i, 'a>
+}
+
+impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexNodeIter<'dt ,'i, 'a> {
+    pub(crate) fn new(index: &'a DevTreeIndex<'dt, 'i>) -> Self {
+        Self {
+            index_node: DevTreeIndexNode::new(index.root.as_ref(), index)
+        }
+    }
+
+    // See the documentation of [`DevTree::find_node`]
+    //#[inline]
+    //pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeNode<'a>, Self)>
+    //where
+    //    F: Fn(&DevTreeNode) -> Result<bool, DevTreeError>,
+    //{
+    //}
+}
+
+impl<'dt, 'i: 'dt, 'a: 'i> Iterator for DevTreeIndexNodeIter<'dt ,'i, 'a> {
+    type Item = DevTreeIndexNode<'dt ,'i, 'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
 
 // TODO Fuck load of utility methods.
