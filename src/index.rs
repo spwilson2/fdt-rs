@@ -89,6 +89,8 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
             match tok {
                 iters::ParsedTok::BeginNode(node) => {
                     // Allocate node from parsed node.
+                    // FIXME: Casting the reference to a pointer results in a dangling pointer in
+                    // the event that the Vec reallocates.
                     cur_node
                         .children
                         .push(DTINode::new(Some(cur_node), node));
