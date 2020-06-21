@@ -40,13 +40,14 @@ extern crate endian_type_rs as endian_type;
 extern crate memoffset;
 extern crate unsafe_unwrap;
 
+mod private;
 mod buf_util;
 pub mod iters;
 pub mod spec;
 
 #[cfg(any(feature = "std", feature = "alloc"))]
 pub mod index;
-pub(crate) mod fdt_util;
+pub mod fdt_util;
 
 use core::convert::From;
 use core::mem::size_of;
@@ -54,6 +55,7 @@ use core::mem::size_of;
 use buf_util::{SliceRead, SliceReadError};
 use spec::{fdt_header, Phandle, FDT_MAGIC};
 use fdt_util::props::DevTreePropState;
+use iters::AssociatedOffset;
 
 cfg_if! {
     if #[cfg(feature = "ascii")] {
@@ -456,159 +458,36 @@ impl<'a> DevTreeNode<'a> {
 
 /// A handle to a [`DevTreeNode`]'s Device Tree Property
 #[derive(Clone)]
-pub struct DevTreeProp<'a> {
-    parent_iter: iters::DevTreeIter<'a>,
-    state: DevTreePropState<'a>,
+pub struct DevTreeProp<'dt> {
+    parent_iter: iters::DevTreeIter<'dt>,
+    propbuf: &'dt [u8],
+    nameoff: AssociatedOffset<'dt>,
+}
+
+impl<'dt> DevTreePropState<'dt> for DevTreeProp<'dt> {}
+impl<'dt> private::DevTreePropStateBase<'dt> for DevTreeProp<'dt> {
+    #[inline]
+    fn propbuf(&self) -> &'dt [u8] {
+        self.propbuf
+    }
+
+    #[inline]
+    fn nameoff(&self) -> AssociatedOffset<'dt> {
+        self.nameoff
+    }
+
+    #[inline]
+    fn fdt(&self) -> &'dt DevTree<'dt> {
+        self.parent_iter.fdt
+    }
 }
 
 impl<'a> DevTreeProp<'a> {
-    #[inline]
-    fn fdt(&'a self) -> &'a DevTree<'a> {
-        self.parent_iter.fdt
-    }
-
-    /// Returns the name of the property within the device tree.
-    #[inline]
-    pub fn name(&'a self) -> Result<&'a Str, DevTreeError> {
-        self.state.name(self.fdt())
-    }
-
     /// Returns the node which this property is attached to
     #[inline]
     #[must_use]
     pub fn parent(&self) -> DevTreeNode<'a> {
         self.parent_iter.clone().next_node().unwrap()
-    }
-
-    /// Returns the length of the property value within the device tree
-    #[inline]
-    #[must_use]
-    pub fn length(&self) -> usize {
-        self.state.length()
-    }
-
-    /// Read a big-endian [`u32`] from the provided offset in this device tree property's value.
-    /// Convert the read value into the machines' native [`u32`] format and return it.
-    ///
-    /// If an offset which would cause this read to access memory outside of this property's value
-    /// an [`Err`] containing [`DevTreeError::InvalidOffset`] will be returned.
-    ///
-    /// # Safety
-    ///
-    /// Device Tree Properties are not strongly typed therefore any dereference could return
-    /// unexpected data.
-    ///
-    /// This method will access memory using [`core::ptr::read_unaligned`], therefore an unaligned
-    /// offset may be provided.
-    ///
-    /// This method will *not* panic.
-    #[inline]
-    pub unsafe fn get_u32(&self, offset: usize) -> Result<u32, DevTreeError> {
-        self.state.get_u32(offset)
-    }
-
-    /// Read a big-endian [`u64`] from the provided offset in this device tree property's value.
-    /// Convert the read value into the machines' native [`u64`] format and return it.
-    ///
-    /// If an offset which would cause this read to access memory outside of this property's value
-    /// an [`Err`] containing [`DevTreeError::InvalidOffset`] will be returned.
-    ///
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_u64(&self, offset: usize) -> Result<u64, DevTreeError> {
-        self.state.get_u64(offset)
-    }
-
-    /// A Phandle is simply defined as a u32 value, as such this method performs the same action as
-    /// [`self.get_u32`]
-    ///
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_phandle(&self, offset: usize) -> Result<Phandle, DevTreeError> {
-        self.state.get_phandle(offset)
-    }
-
-    /// Returns the string property as a string if it can be parsed as one.
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_str(&'a self) -> Result<&'a Str, DevTreeError> {
-        self.state.get_str()
-    }
-
-    /// Returns the string at the given offset within the property.
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_str_at(&'a self, offset: usize) -> Result<&'a Str, DevTreeError> {
-        self.state.get_str_at(offset)
-    }
-
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_str_count(&self) -> Result<usize, DevTreeError> {
-        self.state.get_str_count()
-    }
-
-    /// Fills the supplied slice of references with [`Str`] slices parsed from the given property.
-    /// If parsing is successful, the number of parsed strings will be returned.
-    ///
-    /// If an error occurred parsing one or more of the strings (E.g. they were not valid
-    /// UTF-8/ASCII strings) an [`Err`] of type [`DevTreeError`] will be returned.
-    /// ```
-    /// # #[cfg(not(feature = "ascii"))]
-    /// # {
-    /// # use fdt_rs::Str;
-    /// # let mut devtree = fdt_rs::doctest::get_devtree();
-    /// # let node = devtree.nodes().next().unwrap();
-    /// # let prop = node.props().next().unwrap();
-    /// # unsafe {
-    /// // Get the number of possible strings
-    /// if let Ok(count) = prop.get_str_count() {
-    ///
-    ///     // Allocate a vector to store the strings
-    ///     let mut vec: Vec<Option<&Str>> = vec![None; count];
-    ///
-    ///     // Read and parse the strings
-    ///     if let Ok(_) = prop.get_strlist(&mut vec) {
-    ///         let mut iter = vec.iter();
-    ///
-    ///         // Print out all the strings we found in the property
-    ///         while let Some(Some(s)) = iter.next() {
-    ///             print!("{} ", s);
-    ///         }
-    ///     }
-    /// }
-    /// # }
-    /// # }
-    /// # Ok::<(), fdt_rs::DevTreeError>(())
-    /// ```
-    ///
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_strlist(
-        &'a self,
-        list: &mut [Option<&'a Str>],
-    ) -> Result<usize, DevTreeError> {
-        self.state.get_strlist(list)
-    }
-
-    /// # Safety
-    ///
-    /// See the safety note of [`DevTreeProp::get_u32`]
-    #[inline]
-    pub unsafe fn get_raw(&self) -> &'a [u8] {
-        self.state.get_raw()
     }
 }
 
