@@ -9,12 +9,6 @@
 
 #![allow(dead_code)] // TODO/FIXME
 #![allow(unused_variables)]
-
-// TODO Rather than using a "real" allocator, we could do something in between the real allocator
-// and a fake one.
-//
-// The allocator would start with a `&mut [u8]` hunk of memory, allocate all data as completely
-// packed data, but provide aligned values in return (some space will be lost).
 use crate::iters::AssociatedOffset;
 use crate::unsafe_unwrap::UnsafeUnwrap;
 use crate::*;
@@ -37,35 +31,13 @@ impl<'dt> From<iters::ParsedProp<'dt>> for DevTreeIndexProp<'dt> {
 }
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
-/* From: https://doc.rust-lang.org/std/cell/struct.UnsafeCell.html
- *
- * The precise Rust aliasing rules are somewhat in flux, but the main points are not contentious:
- *
- *  -  If you create a safe reference with lifetime 'a (either a &T or &mut T reference) that is
- *     accessible by safe code (for example, because you returned it), then you must not access the
- *     data in any way that contradicts that reference for the remainder of 'a. For example, this
- *     means that if you take the *mut T from an UnsafeCell<T> and cast it to an &T, then the data
- *     in T must remain immutable (modulo any UnsafeCell data found within T, of course) until that
- *     reference's lifetime expires. Similarly, if you create a &mut T reference that is released to
- *     safe code, then you must not access the data within the UnsafeCell until that reference
- *     expires.
- *
- *  -  At all times, you must avoid data races. If multiple threads have access to the same
- *     UnsafeCell, then any writes must have a proper happens-before relation to all other accesses
- *     (or use atomics).
- *
- * We hold a *const to our parent, but when creating the index, we bump this to a mutable
- * one. The rust spec seems to allow this.
- */
-pub struct DevTreeIndexNode<'dt, 'i: 'dt> {
+struct DevTreeIndexNode<'dt, 'i: 'dt> {
     parent: Option<*const DevTreeIndexNode<'dt, 'i>>,
     children: Vec<DevTreeIndexNode<'dt, 'i>>,
     props: Vec<DevTreeIndexProp<'dt>>,
     name: &'dt [u8],
     _index: PhantomData<&'i [u8]>,
 }
-
-/// TODO
 pub struct DevTreeIndex<'dt, 'i: 'dt> {
     fdt: &'i DevTree<'dt>,
     root: Box<DevTreeIndexNode<'dt, 'i>>,
@@ -126,7 +98,34 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
                     cur_node.props.push(DevTreeIndexProp::from(prop));
                 }
                 iters::ParsedTok::EndNode => {
-                    let cur_node = cur_node.parent.ok_or(DevTreeError::ParseError)?;
+                    // Cast the current node's *const parent pointer into a mutable reference.
+                    //
+                    // This is safe because this will be the only mutable reference to the parent
+                    // while this function is active.
+                    //
+                    // We believe this to not violate the aliasing rules as they are currently
+                    // defined. This soon to be mutable reference is the only way we access parent
+                    // while the mutable reference exists.
+                    //
+                    // Quote: https://doc.rust-lang.org/std/cell/struct.UnsafeCell.html
+                    //
+                    // The precise Rust aliasing rules are somewhat in flux, but the main points
+                    // are not contentious:
+                    //
+                    //  -  If you create a safe reference with lifetime 'a (either a &T or &mut
+                    //     T reference) that is accessible by safe code (for example, because you
+                    //     returned it), then you must not access the data in any way that
+                    //     contradicts that reference for the remainder of 'a. For example, this
+                    //     means that if you take the *mut T from an UnsafeCell<T> and cast it to
+                    //     an &T, then the data
+                    //     in T must remain immutable (modulo any UnsafeCell data found within T,
+                    //     of course) until that reference's lifetime expires. Similarly, if you
+                    //     create a &mut T reference that is released to safe code, then you must
+                    //     not access the data within the UnsafeCell until that reference expires.
+                    unsafe {
+                        let n_ref = cur_node.parent.ok_or(DevTreeError::ParseError)?;
+                        cur_node = &mut *(n_ref as *mut DevTreeIndexNode<'dt, 'i>);
+                    }
                     in_node_header = false;
                 }
                 iters::ParsedTok::Nop => continue,
