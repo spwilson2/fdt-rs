@@ -45,26 +45,10 @@ struct DTINode<'dt, 'i: 'dt> {
     name: &'dt [u8],
 }
 
-struct GrowableSlice<'l, T> {
-    ptr: *const T,
-    size: usize,
-    _lt: PhantomData<&'l T>,
-}
-
-impl<'l, T> GrowableSlice<'l, T> {
-    fn new() -> Self {
-        Self {
-            ptr:  null(),
-            size:  0,
-            _lt: PhantomData,
-        }
-    }
-}
-
 struct DTIWorkingNode<'dt, 'i: 'dt> {
     parent: *mut DTIWorkingNode<'dt, 'i>,
-    children: GrowableSlice<'i, DTINode<'dt, 'i>>,
-    props: GrowableSlice<'i, DTIProp<'dt>>,
+    children: usize,
+    props: usize,
     name: &'dt [u8],
 }
 
@@ -86,18 +70,23 @@ struct DevTreeIndexBuildState<'dt, 'i: 'dt> {
 }
 
 impl<'dt, 'i:'dt> DevTreeIndexBuildState<'dt, 'i> {
-    pub unsafe fn insert_node(&mut self, node: &iters::ParsedBeginNode<'dt>) {
+    pub unsafe fn append_node(&mut self, node: &iters::ParsedBeginNode<'dt>) {
         // Align pointer
         let ptr = (self.front_off as *mut u8).align_offset(align_of::<DTIWorkingNode>()) as *mut DTIWorkingNode;
         assert!(ptr_in(self.buf, ptr));
 
+        if self.cur_node != null_mut() {
+            (*self.cur_node).children += 1;
+        }
+
         // Write the data
         *ptr = DTIWorkingNode {
             parent: self.cur_node,
-            children: GrowableSlice::new(),
-            props: GrowableSlice::new(),
+            children: 0,
+            props: 0,
             name: node.name,
         };
+
         // Save the new node ptr
         self.cur_node = ptr;
         // Increment offset
@@ -110,12 +99,37 @@ impl<'dt, 'i:'dt> DevTreeIndexBuildState<'dt, 'i> {
         // Align pointer
         let ptr = (self.front_off as *mut u8).align_offset(align_of::<DTIProp>()) as *mut DTIProp;
         assert!(ptr_in(self.buf, ptr));
+
         // Write the data
         *ptr = DTIProp::from(prop);
+
+        // Update the Node's prop list
+        (*self.cur_node).props += 1;
+
         // Increment offset
         self.front_off = ptr.add(1) as usize;
 
         assert!(self.front_off <= self.back_off);
+    }
+
+    pub unsafe fn freeze_current_node(&mut self) {
+        // Align pointer
+        let mut ptr = (self.back_off as *mut u8).align_offset(align_of::<DTINode>()) as *mut DTINode;
+        // Move back pointer
+        ptr = ptr.sub(1);
+        assert!(ptr_in(self.buf, ptr));
+
+        // Write in the current node
+        self.write_frozen_node(ptr);
+
+        self.back_off = ptr as usize;
+    }
+
+    fn write_frozen_node(&self, ptr: *mut DTINode) {
+        // TODO Let's move the node into perminent section in the back.
+        // - TODO: Let's move the node shell
+        // - TODO: Let's move the node's props
+        // - TODO Fixup all parent links in our children.
     }
 }
 
@@ -131,7 +145,7 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         for tok in iter {
             match tok {
                 iters::ParsedTok::BeginNode(node) => {
-                    state.insert_node(&node);
+                    state.append_node(&node);
                     return Ok(state);
                 },
                 iters::ParsedTok::Nop => continue,
@@ -161,7 +175,7 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         for tok in iter {
             match tok {
                 iters::ParsedTok::BeginNode(node) => {
-                    state.insert_node(&node);
+                    state.append_node(&node);
                     in_node_header = true;
                 }
                 iters::ParsedTok::Prop(prop) => {
@@ -173,11 +187,10 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
                     state.append_prop(&prop)
                 }
                 iters::ParsedTok::EndNode => {
-                    // TODO We've completely parsed cur_node (both props and node).
-                    // Let's move the node into perminent section in the back.
                     in_node_header = false;
 
-                    // TODO Fixup all parent links in our children.
+                    state.freeze_current_node();
+
                 }
                 iters::ParsedTok::Nop => continue,
             }
