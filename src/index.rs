@@ -14,6 +14,7 @@ use crate::unsafe_unwrap::UnsafeUnwrap;
 use crate::*;
 
 use core::marker::PhantomData;
+use core::ptr::{null_mut, null};
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
 pub struct DTIProp<'dt> {
@@ -54,6 +55,12 @@ impl<'dt, 'i: 'dt> DTINode<'dt, 'i> {
     }
 }
 
+pub struct DevTreeNumCount {
+    children: usize,
+    props: usize,
+    parent: *const DevTreeNumCount,
+}
+
 pub struct DevTreeIndex<'dt, 'i: 'dt> {
     fdt: &'i DevTree<'dt>,
     root: Box<DTINode<'dt, 'i>>,
@@ -76,11 +83,70 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         Err(DevTreeError::ParseError)
     }
 
+    fn get_prealloc_vec(fdt: &'i DevTree<'dt>) -> Result<Vec<DevTreeNumCount>, DevTreeError> {
+        // Iterate once, get number of nodes
+        let num_nodes = iters::DevTreeNodeIter::new(fdt).count();
+        let mut nodes = Vec::<DevTreeNumCount>::new();
+        nodes.reserve_exact(num_nodes);
+
+        for tok in iters::DevTreeParseIter::new(fdt) {
+            match tok {
+                iters::ParsedTok::BeginNode(node) => {
+                    nodes.push(DevTreeNumCount{ 
+                        children: 0,
+                        props: 0,
+                        parent: null_mut(),
+                        });
+                }
+                iters::ParsedTok::Nop => (),
+                _ => return Err(DevTreeError::ParseError),
+            }
+        }
+
+        // Unsafe because we grab a *mut/*const into a Vec. We guaruntee that the Vec will never
+        // reallocate by reserving the exact number of nodes above.
+        unsafe {
+            let mut current_node: *mut DevTreeNumCount = nodes.last_mut().unsafe_unwrap();
+
+            // Iterate twice, get children + props
+            for tok in iters::DevTreeParseIter::new(fdt) {
+                // Device tree had more EndNodes than BeginNodes.
+                if current_node == null_mut() {
+                    return Err(DevTreeError::ParseError);
+                }
+
+                match tok {
+                    iters::ParsedTok::BeginNode(node) => {
+                        (*current_node).children += 1;
+
+                        nodes.push(DevTreeNumCount{ 
+                            children: 0,
+                            props: 0,
+                            parent: current_node,
+                            });
+                    }
+                    iters::ParsedTok::Prop(prop) => {
+                        (*current_node).props += 1;
+                    }
+                    iters::ParsedTok::EndNode => {
+                        current_node = (*current_node).parent as *mut index::DevTreeNumCount;
+                    }
+                    iters::ParsedTok::Nop => {}
+                    _ => {return Err(DevTreeError::ParseError)}
+                }
+            }
+        }
+
+        Ok(nodes)
+    }
+
     pub fn new(fdt: &'i DevTree<'dt>) -> Result<Self, DevTreeError> {
         let mut iter = iters::DevTreeParseIter::new(fdt);
 
         let mut root = Self::get_root_node(&mut iter)?;
         let mut cur_node = root.as_mut();
+
+        let node_stats = Self::get_prealloc_vec(fdt)?;
 
         // Devtree Props may only occur before child nodes. We'll call this the "node_header".
         let mut in_node_header = true;
