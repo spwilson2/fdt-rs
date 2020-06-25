@@ -3,6 +3,7 @@ extern crate fdt_rs;
 use core::mem::size_of;
 use fdt_rs::DevTree;
 use fdt_rs::Str;
+use fdt_rs::fdt_util::props::DevTreePropState;
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
@@ -128,7 +129,6 @@ fn find_all_compatible() {
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 pub mod alloc_tests {
     use super::*;
     use fdt_rs::index;
@@ -138,7 +138,22 @@ pub mod alloc_tests {
     fn create_index() {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
-            index::DevTreeIndex::new(&devtree);
+            index::DevTreeIndex::new(&devtree, vec![0u8;500000].as_mut_slice());
+        }
+    }
+
+    // Test that we can create an index from a valid device tree
+    #[test]
+    fn dfs_iteration() {
+        unsafe {
+            let devtree = DevTree::new(FDT).unwrap();
+            let mut data = vec![0u8;500000];
+            let idx = index::DevTreeIndex::new(&devtree, data.as_mut_slice()).unwrap();
+
+            let iter = idx.dfs_iter();
+            for n in iter {
+                println!("{}", n.name());
+            }
         }
     }
 }

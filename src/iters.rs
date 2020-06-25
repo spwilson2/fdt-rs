@@ -340,7 +340,7 @@ pub(crate) struct DevTreeParseIter<'a> {
 impl<'a> DevTreeParseIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
-            offset: AssociatedOffset::new(fdt.off_mem_rsvmap(), fdt.buf),
+            offset: AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf),
             fdt,
         }
     }
