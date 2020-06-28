@@ -18,6 +18,7 @@ use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::{null, null_mut};
 use core::str;
+use core::mem::MaybeUninit;
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
     buf.as_ptr().add(buf.len()) > (ptr as *const u8) && buf.as_ptr() <= (ptr as *const u8)
@@ -62,11 +63,6 @@ struct DTIBuilder<'dt, 'i: 'dt> {
     in_node_header: bool,
 }
 
-struct UnsafeSlice<T> {
-    ptr: *const T,
-    size: usize,
-}
-
 struct DTINode<'dt, 'i: 'dt> {
     parent: *mut Self,
     first_child: *mut Self,
@@ -76,9 +72,11 @@ struct DTINode<'dt, 'i: 'dt> {
     /// It is 1 if (*next).parent == self.parent, otherwise it is 2.
     next: *mut Self,
     name: &'dt [u8],
-    // Note: we could save space on the pointer if we used a custom C-like array.
-    // This would require repr(C) alignment, we'll just stick with rust alignment.
-    props: UnsafeSlice<DTIProp<'dt>>,
+
+    //NOTE: We store props like C arrays.
+    // This the number of props after this node in memory.
+    // Props are a packed array after each node.
+    num_props: usize,
     _index: PhantomData<&'i u8>,
 }
 
@@ -108,10 +106,7 @@ impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
                 next: null_mut(),
 
                 name: node.name,
-                props: UnsafeSlice {
-                    ptr: null(),
-                    size: 0,
-                },
+                num_props: 0,
                 _index: PhantomData,
             };
 
@@ -152,14 +147,8 @@ impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
         }
 
         unsafe {
-            let props_slice = &mut (*self.cur_node).props;
-
             let new_ptr = self.allocate_aligned_ptr::<DTIProp>()?;
-            if props_slice.ptr == null() {
-                props_slice.ptr = new_ptr;
-            }
-
-            props_slice.size += 1;
+            (*self.cur_node).num_props += 1;
             *new_ptr = DTIProp::from(prop);
         }
 
