@@ -138,7 +138,7 @@ pub mod alloc_tests {
     fn create_index() {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
-            index::DevTreeIndex::new(&devtree, vec![0u8;500000].as_mut_slice());
+            index::DevTreeIndex::new(&devtree, vec![0u8;500000].as_mut_slice()).unwrap();
         }
     }
 
