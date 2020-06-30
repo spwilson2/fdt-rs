@@ -38,6 +38,8 @@ extern crate cfg_if;
 extern crate endian_type_rs as endian_type;
 #[macro_use]
 extern crate memoffset;
+#[macro_use]
+extern crate static_assertions;
 extern crate unsafe_unwrap;
 
 mod private;
@@ -114,6 +116,9 @@ pub enum DevTreeError {
 
     /// The device tree version is not supported by this library.
     VersionNotSupported,
+
+    /// There wasn't enough memory to create a [`DevTreeIndex`].
+    NotEnoughMemory,
     Eof,
 }
 

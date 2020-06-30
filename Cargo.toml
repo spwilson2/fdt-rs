@@ -33,6 +33,7 @@ optional = true
 
 [dependencies]
 unsafe_unwrap = "0.1.0"
+static_assertions = "1"
 
 [build-dependencies]
 rustc_version = "0.2"

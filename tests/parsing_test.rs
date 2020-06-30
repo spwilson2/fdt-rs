@@ -144,6 +144,28 @@ pub mod alloc_tests {
 
     // Test that we can create an index from a valid device tree
     #[test]
+    fn create_sized_index() {
+        unsafe {
+            let devtree = DevTree::new(FDT).unwrap();
+            let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
+            let mut vec = vec![0u8; layout.size() + layout.align()];
+            index::DevTreeIndex::new(&devtree, vec.as_mut_slice()).unwrap();
+        }
+    }
+
+    // Test that an invalid buffer size results in NotEnoughMemory.
+    #[test]
+    fn expect_create_index_layout_fails_with_invalid_layout() {
+        unsafe {
+            let devtree = DevTree::new(FDT).unwrap();
+            let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
+            let mut vec = vec![0u8; layout.size() - 1];
+            index::DevTreeIndex::new(&devtree, vec.as_mut_slice()).expect_err("Expected failure.");
+        }
+    }
+
+    // Test that we can create an index from a valid device tree
+    #[test]
     fn dfs_iteration() {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();

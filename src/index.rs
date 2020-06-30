@@ -18,17 +18,24 @@ use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::{null, null_mut};
 use core::str;
-use core::mem::MaybeUninit;
+use core::alloc::Layout;
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
-    buf.as_ptr().add(buf.len()) > (ptr as *const u8) && buf.as_ptr() <= (ptr as *const u8)
+    // Make sure we dont' go over the buffer
+    let mut res = buf.as_ptr() as usize + buf.len() > (ptr as usize + size_of::<T>());
+    // Make sure we don't go under the buffer
+    res &= buf.as_ptr() as usize <= ptr as usize;
+    return res;
 }
 
-unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> *mut T {
-    let mut ptr = buf.as_ptr().add(offset);
-    ptr = ptr.add(ptr.align_offset(align_of::<T>()));
-    assert!(ptr_in(buf, ptr));
-    ptr as *mut T
+unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> Result<*mut T, DevTreeError> {
+    let ptr = buf.as_ptr().add(offset);
+
+    let ptr = ptr.add(ptr.align_offset(align_of::<T>())) as *mut T;
+    if !ptr_in(buf, ptr) {
+        return Err(DevTreeError::NotEnoughMemory);
+    }
+    Ok(ptr)
 }
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
@@ -47,6 +54,7 @@ impl<'dt> From<&iters::ParsedProp<'dt>> for DTIProp<'dt> {
 }
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
+#[derive(Debug)]
 pub struct DevTreeIndex<'dt, 'i: 'dt> {
     fdt: &'i DevTree<'dt>,
     root: *mut DTINode<'dt, 'i>,
@@ -83,9 +91,9 @@ struct DTINode<'dt, 'i: 'dt> {
 impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
     fn allocate_aligned_ptr<T>(&mut self) -> Result<*mut T, DevTreeError> {
         unsafe {
-            let ptr = aligned_ptr_in::<T>(self.buf, self.front_off);
+            let ptr = aligned_ptr_in::<T>(self.buf, self.front_off)?;
             self.front_off = ptr.add(1) as usize - self.buf.as_ptr() as usize;
-            return Ok(ptr);
+            Ok(ptr)
         }
     }
 
@@ -111,7 +119,7 @@ impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
             };
 
             if !parent.is_null() {
-                assert!(
+                debug_assert!(
                     self.prev_new_node != null_mut(),
                     "cur_node should not have been initialized without also intializing \
                     prev_new_node"
@@ -160,17 +168,17 @@ impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
         if self.cur_node.is_null() {
             return Err(DevTreeError::ParseError);
         }
-
         // Unsafe is Ok.
         // Lifetime : self.cur_node is a pointer into a buffer with the same lifetime as self
         // Alignment: parsed_node verifies alignment when creating self.cur_node
-        // NonNull  : We check above
+        // NonNull  : We check that self.cur_node is non-null above
         unsafe {
-            assert!(ptr_in(self.buf, self.cur_node));
             // Change the current node back to the parent.
             self.cur_node = (*self.cur_node).parent;
         }
 
+        // We are no longer in a node header.
+        // We are either going to see a new node next or parse another end_node.
         self.in_node_header = false;
 
         Ok(())
@@ -212,6 +220,42 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         }
 
         Err(DevTreeError::ParseError)
+    }
+
+    pub fn get_layout(fdt: &'i DevTree<'dt>) -> Result<Layout, DevTreeError> {
+        // Size may require alignment of DTINode.
+        let mut size = 0usize;
+
+        // We assert this because it makes size calculations easier.
+        // We don't have to worry about re-aligning between props and nodes.
+        // If they didn't have the same alignment, we would have to keep track
+        // of the last node and re-align depending on the last seen type.
+        //
+        // E.g. If we saw one node, two props, and then two nodes:
+        //
+        // size = \
+        // align_of::<DTINode> + size_of::<DTINode>
+        // + align_of::<DTIProp> + size_of::<DTIProp>
+        // + size_of::<DTIProp>
+        // + size_of::<DTIProp>
+        // + align_of::<DTINode> + size_of::<DTINode>
+        // + size_of::<DTINode>
+        const_assert_eq!(align_of::<DTINode>(), align_of::<DTIProp>());
+
+        for item in iters::DevTreeIter::new(fdt) {
+            match item {
+                DevTreeItem::Node(_) => size += size_of::<DTINode>(),
+                DevTreeItem::Prop(_) => size += size_of::<DTIProp>(),
+            }
+        }
+        // TODO Check iter status
+
+        // Unsafe okay.
+        // - Size is not likely to be usize::MAX. (There's no way we find that many nodes.)
+        // - Align is a result of align_of, so it will be a non-zero power of two
+        unsafe {
+            return Ok(Layout::from_size_align_unchecked(size, align_of::<DTINode>()));
+        }
     }
 
     pub fn new(fdt: &'i DevTree<'dt>, buf: &'i mut [u8]) -> Result<Self, DevTreeError> {
