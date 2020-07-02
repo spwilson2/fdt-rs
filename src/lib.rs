@@ -47,6 +47,9 @@ use spec::{fdt_header, Phandle, FDT_MAGIC};
 use fdt_util::props::DevTreePropState;
 use iters::AssociatedOffset;
 
+pub mod prelude;
+use crate::prelude::*;
+
 type StrError = core::str::Utf8Error;
 type Str = str;
 fn bytes_as_str(buf: &[u8]) -> Result<& Str, StrError> {
@@ -305,7 +308,7 @@ impl<'a> DevTree<'a> {
     ///     # assert!(compatible_prop.parent().name()? == "uart@10000000");
     ///
     ///     // Continue the search and keep printing their names.
-    ///     while let Some((DevTreeItem::Prop(compatible_prop), mut iter)) = iter.find(is_uart_compatible) {
+    ///     while let Some((DevTreeItem::Prop(compatible_prop), mut iter)) = iter.find_next(is_uart_compatible) {
     ///         # assert!(false, "Found uart node that should not have existed.");
     ///         println!("{}", compatible_prop.parent().name()?);
     ///     }
@@ -318,7 +321,7 @@ impl<'a> DevTree<'a> {
     where
         F: Fn(&DevTreeItem) -> Result<bool, DevTreeError>,
     {
-        iters::DevTreeIter::new(self).find(predicate)
+        iters::DevTreeIter::new(self).find_next(predicate)
     }
 
     /// Map the supplied predicate over all [`DevTreeProp`] objects
@@ -348,7 +351,7 @@ impl<'a> DevTree<'a> {
     where
         F: Fn(&DevTreeProp) -> Result<bool, DevTreeError>,
     {
-        iters::DevTreePropIter::new(self).find(predicate)
+        iters::DevTreePropIter::new(self).find_next(predicate)
     }
 
     /// Map the supplied predicate over all [`DevTreeNode`] objects
@@ -363,7 +366,7 @@ impl<'a> DevTree<'a> {
     where
         F: Fn(&DevTreeNode) -> Result<bool, DevTreeError>,
     {
-        iters::DevTreeNodeIter::new(self).find(predicate)
+        iters::DevTreeNodeIter::new(self).find_next(predicate)
     }
 
     /// Returns the first [`DevTreeNode`] object with the provided compatible device tree property

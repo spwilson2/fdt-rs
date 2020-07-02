@@ -12,7 +12,7 @@ use super::{DevTree, DevTreeError, DevTreeItem, DevTreeNode, DevTreeProp};
 use crate::bytes_as_str;
 use crate::fdt_util::props::DevTreePropState;
 
-pub trait DevTreeFindNextTrait: Iterator + std::clone::Clone {
+pub trait FindNext: Iterator + core::clone::Clone {
     #[inline]
     fn find_next<F>(&mut self, predicate: F) -> Option<(Self::Item, Self)>
     where
@@ -105,6 +105,7 @@ pub struct DevTreeIter<'a> {
     //parse_error: Option<>
 }
 
+impl FindNext for DevTreeIter<'_> {}
 impl<'a> DevTreeIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
@@ -160,20 +161,6 @@ impl<'a> DevTreeIter<'a> {
         }
     }
 
-    /// See the documentation of [`DevTree::find`]
-    #[inline]
-    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeItem<'a>, Self)>
-    where
-        F: Fn(&DevTreeItem) -> Result<bool, DevTreeError>,
-    {
-        while let Some(i) = self.next() {
-            if let Ok(true) = predicate(&i) {
-                return Some((i, self.clone()));
-            }
-        }
-        None
-    }
-
     /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
     #[inline]
@@ -184,7 +171,7 @@ impl<'a> DevTreeIter<'a> {
         if iter.next().is_some() {
             // Iterate through its properties looking for the compatible string.
             let mut iter = DevTreePropIter::from(iter.0);
-            if let Some((compatible_prop, _)) = iter.find(|prop| unsafe {
+            if let Some((compatible_prop, _)) = iter.find_next(|prop| unsafe {
                 Ok((prop.name()? == "compatible") && (prop.get_str()? == string))
             }) {
                 return Some(compatible_prop.parent());
@@ -248,22 +235,9 @@ impl<'a> DevTreeNodeIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self(DevTreeIter::new(fdt))
     }
-
-    /// See the documentation of [`DevTree::find_node`]
-    #[inline]
-    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeNode<'a>, Self)>
-    where
-        F: Fn(&DevTreeNode) -> Result<bool, DevTreeError>,
-    {
-        while let Some(i) = self.next() {
-            if let Ok(true) = predicate(&i) {
-                return Some((i, self.clone()));
-            }
-        }
-        None
-    }
 }
 
+impl FindNext for DevTreeNodeIter<'_> {}
 impl<'a> Iterator for DevTreeNodeIter<'a> {
     type Item = DevTreeNode<'a>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -281,23 +255,10 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodeIter<'a> {
 #[derive(Clone)]
 pub struct DevTreePropIter<'a>(DevTreeIter<'a>);
 
+impl FindNext for DevTreePropIter<'_> {}
 impl<'a> DevTreePropIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self(DevTreeIter::new(fdt))
-    }
-
-    /// See the documentation of [`DevTree::find_prop`]
-    #[inline]
-    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeProp<'a>, Self)>
-    where
-        F: Fn(&DevTreeProp) -> Result<bool, DevTreeError>,
-    {
-        while let Some(i) = self.next() {
-            if let Ok(true) = predicate(&i) {
-                return Some((i, self.clone()));
-            }
-        }
-        None
     }
 }
 
@@ -318,23 +279,10 @@ impl<'a> From<DevTreeIter<'a>> for DevTreePropIter<'a> {
 #[derive(Clone)]
 pub struct DevTreeNodePropIter<'a>(DevTreeIter<'a>);
 
+impl FindNext for DevTreeNodePropIter<'_> {}
 impl<'a> DevTreeNodePropIter<'a> {
     pub(crate) fn new(node: &'a DevTreeNode) -> Self {
         Self(node.parse_iter.clone())
-    }
-
-    /// See the documentation of [`DevTree::find_prop`]
-    #[inline]
-    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeProp<'a>, Self)>
-    where
-        F: Fn(&DevTreeProp) -> bool,
-    {
-        while let Some(i) = self.next() {
-            if predicate(&i) {
-                return Some((i, self.clone()));
-            }
-        }
-        None
     }
 }
 

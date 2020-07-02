@@ -30,7 +30,7 @@ fn nodes_iter() {
     unsafe {
         let blob = DevTree::new(FDT).unwrap();
         for node in blob.nodes() {
-            println!("{}", node.name().unwrap());
+            let _ = node.name().unwrap();
         }
         assert!(blob.nodes().count() == 27);
     }
@@ -43,11 +43,9 @@ fn node_prop_iter() {
         for node in blob.nodes() {
             for prop in node.props() {
                 if prop.length() == size_of::<u32>() {
-                    //println!("\t\t0x{:x}", prop.get_u32(0).unwrap());
                 }
                 if prop.length() > 0 {
                     if let Ok(i) = prop.get_str_count() {
-                        println!("{}", i);
                         if i == 0 {
                             continue;
                         }
@@ -60,9 +58,8 @@ fn node_prop_iter() {
                         let mut iter = vec.iter();
 
                         while let Some(Some(s)) = iter.next() {
-                            print!("\t\t{} ", s);
+                            let _ = s;
                         }
-                        println!();
                     }
                 }
             }
@@ -178,7 +175,7 @@ pub mod alloc_tests {
 
             let iter = idx.dfs_iter();
             for n in iter {
-                println!("{}", n.name().unwrap());
+                let _ = n.name().unwrap();
             }
         }
     }
@@ -193,7 +190,7 @@ pub mod alloc_tests {
 
             let iter = idx.dfs_iter();
             for n in iter {
-                println!("{}", n.name().unwrap());
+                let _ = n.name().unwrap();
             }
         }
     }

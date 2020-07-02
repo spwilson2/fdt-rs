@@ -10,7 +10,7 @@
 #![allow(dead_code)] // TODO/FIXME
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-use crate::iters::{AssociatedOffset, DevTreeFindNextTrait};
+use crate::iters::{AssociatedOffset, FindNext};
 use crate::unsafe_unwrap::UnsafeUnwrap;
 use crate::*;
 
@@ -384,7 +384,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
     }
 }
 
-impl DevTreeFindNextTrait for DevTreeIndexDFSNodeIter<'_, '_, '_> {}
+impl FindNext for DevTreeIndexDFSNodeIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
@@ -434,7 +434,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
     }
 }
 
-impl DevTreeFindNextTrait for DevTreeIndexNodeSiblingIter<'_, '_, '_> {}
+impl FindNext for DevTreeIndexNodeSiblingIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
@@ -485,7 +485,7 @@ pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i> {
 }
 
 
-impl DevTreeFindNextTrait for DevTreeIndexNodePropIter<'_, '_, '_> {}
+impl FindNext for DevTreeIndexNodePropIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
 
