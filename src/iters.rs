@@ -17,8 +17,8 @@ pub trait FindNext: Iterator + core::clone::Clone {
     fn find_next<F>(&mut self, predicate: F) -> Option<(Self::Item, Self)>
     where
         F: Fn(&Self::Item) -> Result<bool, DevTreeError>,
-        <Self as Iterator>::Item: std::marker::Sized,
-        Self: std::marker::Sized
+        <Self as Iterator>::Item: core::marker::Sized,
+        Self: core::marker::Sized
     {
         while let Some(i) = self.next() {
             if let Ok(true) = predicate(&i) {

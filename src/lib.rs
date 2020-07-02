@@ -35,7 +35,6 @@ mod buf_util;
 pub mod iters;
 pub mod spec;
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 pub mod index;
 pub mod fdt_util;
 

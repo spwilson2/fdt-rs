@@ -1,12 +1,41 @@
 extern crate fdt_rs;
 
 use core::mem::size_of;
-use fdt_rs::DevTree;
 use fdt_rs::fdt_util::props::DevTreePropState;
+use fdt_rs::DevTree;
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
 pub const FDT: &[u8] = &_Wrapper(*include_bytes!("riscv64-virt.dtb")).0;
+static DFS_NODES: &'static [&'static str] = &[
+    "", // Root
+    "flash@20000000",
+    "rtc@101000",
+    "chosen",
+    "uart@10000000",
+    "poweroff",
+    "reboot",
+    "test@100000",
+    "virtio_mmio@10008000",
+    "virtio_mmio@10007000",
+    "virtio_mmio@10006000",
+    "virtio_mmio@10005000",
+    "virtio_mmio@10004000",
+    "virtio_mmio@10003000",
+    "virtio_mmio@10002000",
+    "virtio_mmio@10001000",
+    "cpus",
+    "cpu-map",
+    "cluster0",
+    "core0",
+    "cpu@0",
+    "interrupt-controller",
+    "memory@80000000",
+    "soc",
+    "pci@30000000",
+    "interrupt-controller@c000000",
+    "clint@2000000",
+];
 
 #[test]
 fn test_readsize_advice() {
@@ -29,10 +58,11 @@ fn reserved_entries_iter() {
 fn nodes_iter() {
     unsafe {
         let blob = DevTree::new(FDT).unwrap();
-        for node in blob.nodes() {
-            let _ = node.name().unwrap();
+        let iter = blob.nodes();
+        for (node, expected) in iter.clone().zip(DFS_NODES) {
+            assert_eq!(node.name().unwrap(), *expected);
         }
-        assert!(blob.nodes().count() == 27);
+        assert!(iter.count() == DFS_NODES.len());
     }
 }
 
@@ -42,8 +72,7 @@ fn node_prop_iter() {
         let blob = DevTree::new(FDT).unwrap();
         for node in blob.nodes() {
             for prop in node.props() {
-                if prop.length() == size_of::<u32>() {
-                }
+                if prop.length() == size_of::<u32>() {}
                 if prop.length() > 0 {
                     if let Ok(i) = prop.get_str_count() {
                         if i == 0 {
@@ -71,9 +100,7 @@ fn node_prop_iter() {
 fn find_first_compatible_works_on_initial_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt
-            .find_first_compatible_node("riscv-virtio")
-            .unwrap();
+        let node = fdt.find_first_compatible_node("riscv-virtio").unwrap();
         assert!(node.name().unwrap() == ""); // Root node has no "name"
     }
 }
@@ -82,9 +109,7 @@ fn find_first_compatible_works_on_initial_node() {
 fn find_first_compatible_works_on_final_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt
-            .find_first_compatible_node("riscv,clint0")
-            .unwrap();
+        let node = fdt.find_first_compatible_node("riscv,clint0").unwrap();
         assert!(node.name().unwrap() == "clint@2000000");
     }
 }
@@ -116,20 +141,20 @@ pub mod alloc_tests {
     use fdt_rs::index;
     use fdt_rs::index::DevTreeIndex;
 
-    static mut index_buf: &mut[u8] = &mut [0; 50_000];
-
     struct FdtIndex<'dt> {
-        fdt: DevTree<'dt>,
         index: DevTreeIndex<'dt, 'dt>,
+        _vec: Vec<u8>,
     }
 
     fn get_fdt_index<'dt>() -> FdtIndex<'dt> {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
             let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
+            let mut vec = vec![0u8; layout.size() + layout.align()];
+            let slice = core::slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len());
             FdtIndex {
-                fdt: devtree.clone(),
-                index: index::DevTreeIndex::new(devtree, index_buf).unwrap(),
+                index: index::DevTreeIndex::new(devtree, slice).unwrap(),
+                _vec: vec,
             }
         }
     }
@@ -137,13 +162,10 @@ pub mod alloc_tests {
     // Test that we can create an index from a valid device tree
     #[test]
     fn create_index() {
-        unsafe {
-            let devtree = DevTree::new(FDT).unwrap();
-            index::DevTreeIndex::new(devtree, vec![0u8;500000].as_mut_slice()).unwrap();
-        }
+        let _ = get_fdt_index();
     }
 
-    // Test that we can create an index from a valid device tree
+    // Test that our index get_layout returns a usable layout size.
     #[test]
     fn create_sized_index() {
         unsafe {
@@ -154,7 +176,7 @@ pub mod alloc_tests {
         }
     }
 
-    // Test that an invalid buffer size results in NotEnoughMemory.
+    // Test that an invalid buffer size results in NotEnoughMemory on index allocation.
     #[test]
     fn expect_create_index_layout_fails_with_invalid_layout() {
         unsafe {
@@ -165,33 +187,29 @@ pub mod alloc_tests {
         }
     }
 
-    // Test that we can create an index from a valid device tree
+    // Test DFS iteration using a DevTreeIndex.
     #[test]
     fn dfs_iteration() {
-        unsafe {
-            let devtree = DevTree::new(FDT).unwrap();
-            let mut data = vec![0u8;500000];
-            let idx = index::DevTreeIndex::new(devtree, data.as_mut_slice()).unwrap();
+        let idx = get_fdt_index().index;
 
-            let iter = idx.nodes();
-            for n in iter {
-                let _ = n.name().unwrap();
-            }
+        let iter = idx.nodes();
+
+        for (node, expected) in iter.clone().zip(DFS_NODES) {
+            assert_eq!(node.name().unwrap(), *expected);
         }
+        assert!(iter.count() == DFS_NODES.len());
     }
 
-    // Test that we can create an index from a valid device tree
+    // Test iteration over the root nodes props.
     #[test]
     fn root_prop_iteration() {
-        unsafe {
-            let devtree = DevTree::new(FDT).unwrap();
-            let mut data = vec![0u8;500000];
-            let idx = index::DevTreeIndex::new(devtree, data.as_mut_slice()).unwrap();
+        let idx = get_fdt_index().index;
+        let root_props = &["#address-cells", "#size-cells",  "compatible", "model"];
 
-            let iter = idx.nodes();
-            for n in iter {
-                let _ = n.name().unwrap();
-            }
+        let iter = idx.root().unwrap().props();
+        for (node, expected) in iter.clone().zip(root_props) {
+            assert_eq!(node.name().unwrap(), *expected);
         }
+        assert!(iter.count() == root_props.len());
     }
 }
