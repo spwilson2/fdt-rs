@@ -289,10 +289,58 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         Ok(this)
     }
 
-    /// Returns a [`DevTreeIndexDFSNodeIter`] over [`DevTreeIndexNode`] objects of the
-    /// [`DevTreeIndex`]
-    pub fn dfs_iter<'a>(&'a self) -> DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
-        DevTreeIndexDFSNodeIter::new(self)
+    pub fn nodes(&self) -> DevTreeIndexNodeIter<'_, 'i, 'dt> {
+        DevTreeIndexNodeIter::new(self)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn items(&self) -> DevTreeIndexItemIter {
+        DevTreeIndexItemIter::new(self)
+    }
+
+    #[inline]
+    pub fn root(&self) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
+        self.nodes().next()
+    }
+
+    #[inline]
+    pub fn find_item<F>(&'_ self, predicate: F) -> Option<(DevTreeIndexItem<'_, 'i, 'dt>, DevTreeIndexItemIter<'_, 'i, 'dt>)>
+    where
+        F: Fn(&DevTreeIndexItem) -> Result<bool, DevTreeError>,
+    {
+        DevTreeIndexItemIter::new(self).find_next(predicate)
+    }
+
+    #[inline]
+    pub fn find_prop<F>(
+        &self,
+        predicate: F,
+    ) -> Option<(DevTreeIndexProp<'_, 'i, 'dt>, DevTreeIndexPropIter<'_, 'i, 'dt>)>
+    where
+        F: Fn(&DevTreeIndexProp) -> Result<bool, DevTreeError>,
+    {
+        DevTreeIndexPropIter::new(self).find_next(predicate)
+    }
+
+    #[inline]
+    pub fn find_node<F>(
+        &self,
+        predicate: F,
+    ) -> Option<(DevTreeIndexNode<'_, 'i, 'dt>, DevTreeIndexNodeIter<'_, 'i, 'dt>)>
+    where
+        F: Fn(&DevTreeIndexNode) -> Result<bool, DevTreeError>,
+    {
+        DevTreeIndexNodeIter::new(self).find_next(predicate)
+    }
+
+    #[inline]
+    pub fn find_first_compatible_node(&'_ self, string: &Str) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
+        let prop = self.find_prop(move |prop| Ok(prop.name()? == "compatible" && unsafe {prop.get_str()}? == string));
+        if let Some(prop) = prop {
+            return Some(prop.0.node());
+        }
+        None
     }
 }
 /*
@@ -319,6 +367,10 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
     pub fn siblings(&self) -> DevTreeIndexNodeSiblingIter<'_, 'i, 'dt> {
         DevTreeIndexNodeSiblingIter::new(self)
     }
+
+    pub fn props(&self) -> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
+        DevTreeIndexNodePropIter::new(self.index, self.node)
+    }
 }
 
 #[derive(Clone)]
@@ -326,6 +378,12 @@ pub struct DevTreeIndexProp<'a, 'i: 'a, 'dt: 'i> {
     pub index: &'a DevTreeIndex<'i, 'dt>,
     node: &'a DTINode<'i, 'dt>,
     prop: &'a DTIProp<'dt>,
+}
+
+impl<'r, 'a:'r, 'i:'a, 'dt:'i> DevTreeIndexProp<'a, 'i, 'dt> { 
+    fn node(&self) -> DevTreeIndexNode<'a, 'i, 'dt> {
+        DevTreeIndexNode::new(self.index, self.node)
+    }
 }
 
 impl<'r, 'a:'r, 'i:'a, 'dt:'i> DevTreePropState<'r, 'dt> for DevTreeIndexProp<'a, 'i, 'dt> {}
@@ -355,6 +413,12 @@ impl<'dt> From<&iters::ParsedProp<'dt>> for DTIProp<'dt> {
     }
 }
 
+#[derive(Clone)]
+pub enum DevTreeIndexItem<'a, 'i: 'a, 'dt:'i> {
+    Node(DevTreeIndexNode<'a, 'i, 'dt>),
+    Prop(DevTreeIndexProp<'a, 'i, 'dt>),
+}
+
 
 /*********************************************************************************/
 /************************       Iterators     ************************************/
@@ -365,14 +429,13 @@ impl<'dt> From<&iters::ParsedProp<'dt>> for DTIProp<'dt> {
 /***********  DFS  *****************/
 /***********************************/
 
-/// An iterator over [`DevTreeIndexNode`] objects of the [`DevTreeIndex`]
 #[derive(Clone)]
-pub struct DevTreeIndexDFSNodeIter<'a, 'i: 'a, 'dt:'i> {
+pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt:'i> {
     pub index: &'a DevTreeIndex<'i, 'dt>,
     node: Option<&'a DTINode<'i, 'dt>>,
 }
 
-impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodeIter<'a, 'i, 'dt> {
     pub(crate) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
         unsafe {
             let root_ref = index.root.as_ref().unsafe_unwrap();
@@ -385,8 +448,8 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
     }
 }
 
-impl FindNext for DevTreeIndexDFSNodeIter<'_, '_, '_> {}
-impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
+impl FindNext for DevTreeIndexNodeIter<'_, '_, '_> {}
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -418,7 +481,6 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
 /***********  Node Siblings  *******/
 /***********************************/
 
-/// An iterator over [`DevTreeIndexNode`] objects of the [`DevTreeIndex`]
 #[derive(Clone)]
 pub struct DevTreeIndexNodeSiblingIter<'a, 'i: 'a, 'dt: 'i> {
     pub index: &'a DevTreeIndex<'i, 'dt>,
@@ -469,7 +531,6 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> 
 /***********  Node Props ***********/
 /***********************************/
 
-/// An iterator over [`DevTreeIndexProp`] objects of a [`DevTreeIndexNode`]
 #[derive(Clone)]
 pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i> {
     pub index: &'a DevTreeIndex<'i, 'dt>,
@@ -477,13 +538,15 @@ pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i> {
     prop_idx: usize,
 }
 
-/// An iterator over [`DevTreeIndexProp`] objects of a [`DevTreeIndexNode`]
-#[derive(Clone)]
-pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i> {
-    pub index: &'a DevTreeIndex<'i, 'dt>,
-    node: &'a DTINode<'i, 'dt>,
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
+    fn new(index: &'a DevTreeIndex<'i, 'dt>, node: &'a DTINode<'i, 'dt>) -> Self {
+        Self {
+            index,
+            node,
+            prop_idx: 0,
+        }
+    }
 }
-
 
 impl FindNext for DevTreeIndexNodePropIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
@@ -502,5 +565,108 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
             });
         }
         None
+    }
+}
+
+/***********************************/
+/***********  Props      ***********/
+/***********************************/
+
+#[derive(Clone)]
+pub struct DevTreeIndexPropIter<'a, 'i: 'a, 'dt: 'i> {
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node_iter: DevTreeIndexNodeIter<'a, 'i, 'dt>,
+    prop_iter: Option<DevTreeIndexNodePropIter<'a, 'i, 'dt>>,
+}
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexPropIter<'a, 'i, 'dt> {
+    fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
+        Self {
+            index,
+            node_iter: index.nodes(),
+            prop_iter: None,
+        }
+    }
+}
+
+impl FindNext for DevTreeIndexPropIter<'_, '_, '_> {}
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
+    type Item = DevTreeIndexProp<'a, 'i, 'dt>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // 1. Advance through each node:
+        //   a. Advance through each prop and return that prop.
+        loop {
+            let prop_iter;
+
+            loop {
+                if let Some(prop) = &mut self.prop_iter {
+                    prop_iter = prop;
+                    break;
+                }
+
+                match self.node_iter.next() {
+                    Some(node) =>  {
+                        self.prop_iter = Some(node.props());
+                    },
+                    None => return None,
+                }
+            }
+
+            if let Some(prop) = prop_iter.next() {
+                return Some(prop);
+            }
+        }
+    }
+}
+
+/***********************************/
+/***********  Items      ***********/
+/***********************************/
+
+#[derive(Clone)]
+pub struct DevTreeIndexItemIter<'a, 'i: 'a, 'dt: 'i> {
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node_iter: DevTreeIndexNodeIter<'a, 'i, 'dt>,
+    prop_iter: Option<DevTreeIndexNodePropIter<'a, 'i, 'dt>>,
+}
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexItemIter<'a, 'i, 'dt> {
+    fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
+        Self {
+            index,
+            node_iter: index.nodes(),
+            prop_iter: None,
+        }
+    }
+}
+
+impl FindNext for DevTreeIndexItemIter<'_, '_, '_> {}
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexItemIter<'a, 'i, 'dt> {
+    type Item = DevTreeIndexItem<'a, 'i, 'dt>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // 1. Advance through each node:
+        //   a. Advance through each prop and return that prop.
+        loop {
+            let prop_iter;
+
+            loop {
+                if let Some(prop) = &mut self.prop_iter {
+                    prop_iter = prop;
+                    break;
+                }
+
+                match self.node_iter.next() {
+                    Some(node) =>  {
+                        self.prop_iter = Some(node.props());
+                        return Some(DevTreeIndexItem::Node(node));
+                    },
+                    None => return None,
+                }
+            }
+
+            if let Some(prop) = prop_iter.next() {
+                return Some(DevTreeIndexItem::Prop(prop));
+            }
+        }
     }
 }

@@ -173,7 +173,7 @@ pub mod alloc_tests {
             let mut data = vec![0u8;500000];
             let idx = index::DevTreeIndex::new(devtree, data.as_mut_slice()).unwrap();
 
-            let iter = idx.dfs_iter();
+            let iter = idx.nodes();
             for n in iter {
                 let _ = n.name().unwrap();
             }
@@ -188,7 +188,7 @@ pub mod alloc_tests {
             let mut data = vec![0u8;500000];
             let idx = index::DevTreeIndex::new(devtree, data.as_mut_slice()).unwrap();
 
-            let iter = idx.dfs_iter();
+            let iter = idx.nodes();
             for n in iter {
                 let _ = n.name().unwrap();
             }
