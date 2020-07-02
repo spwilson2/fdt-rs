@@ -13,17 +13,7 @@
 //! [dependencies.fdt-rs]
 //! version = "0.1"
 //! default-features = false
-//! # features = ["ascii"]    # <--- Uncomment if you wish to use the ascii crate for str's
 //! ```
-//!
-//! Embeded software may not require the use of utf8 strings. For memory and processing constrained
-//! environments ASCII may be suitable. For this reason, this crate supports the use of either
-//! ascii or standard rust utf-8 `str`  types.
-//!
-//! Enabling the `"ascii"` feature will configure the `Str` type returned by string accessor
-//! methods to be of type `AsciiStr` provided by the
-//! [ascii crate](https://docs.rs/ascii/1.0.0/ascii/).
-//!
 #![deny(clippy::all, clippy::cargo)]
 #![allow(clippy::as_conversions)]
 // Test the readme if using nightly.
@@ -33,8 +23,6 @@
 extern crate core;
 #[cfg(any(feature = "std", feature = "alloc"))]
 extern crate alloc;
-#[macro_use]
-extern crate cfg_if;
 extern crate endian_type_rs as endian_type;
 #[macro_use]
 extern crate memoffset;
@@ -59,22 +47,10 @@ use spec::{fdt_header, Phandle, FDT_MAGIC};
 use fdt_util::props::DevTreePropState;
 use iters::AssociatedOffset;
 
-cfg_if! {
-    if #[cfg(feature = "ascii")] {
-        extern crate ascii;
-
-        pub type StrError = ascii::AsAsciiStrError;
-        pub type Str = ascii::AsciiStr;
-        fn bytes_as_str(buf: &[u8]) -> Result<& Str, StrError> {
-            ascii::AsciiStr::from_ascii(buf)
-        }
-    } else {
-        pub type StrError = core::str::Utf8Error;
-        pub type Str = str;
-        fn bytes_as_str(buf: &[u8]) -> Result<& Str, StrError> {
-            core::str::from_utf8(buf)
-        }
-    }
+type StrError = core::str::Utf8Error;
+type Str = str;
+fn bytes_as_str(buf: &[u8]) -> Result<& Str, StrError> {
+    core::str::from_utf8(buf)
 }
 
 macro_rules! get_be32_field {
@@ -110,8 +86,6 @@ pub enum DevTreeError {
 
     /// While trying to convert a string that was supposed to be ASCII, invalid
     /// `Str` sequences were encounter.
-    ///
-    /// Note, the underlying type will differ based on use of the `ascii` feature.
     StrError(StrError),
 
     /// The device tree version is not supported by this library.
@@ -434,12 +408,9 @@ impl<'a> DevTreeNode<'a> {
     /// # Example
     ///
     /// The following example iterates through all nodes with compatible value "virtio,mmio"
-    /// and prints each node's name. (Slight modification of this example is required if using
-    /// the "ascii" feature.)
+    /// and prints each node's name.
     ///
     /// ```
-    /// # #[cfg(not(feature = "ascii"))]
-    /// # {
     /// # let mut devtree = fdt_rs::doctest::get_devtree();
     /// let compat = "virtio,mmio";
     /// # let mut count = 0;
@@ -452,7 +423,6 @@ impl<'a> DevTreeNode<'a> {
     ///     }
     /// }
     /// # assert!(count == 8);
-    /// # }
     /// # Ok::<(), fdt_rs::DevTreeError>(())
     /// ```
     #[inline]
@@ -503,10 +473,7 @@ pub mod doctest {
 
     // Include the readme for doctests
     // https://doc.rust-lang.org/rustdoc/documentation-tests.html#include-items-only-when-collecting-doctests
-    //
-    // Ignore ascii since we don't want to have to bother with string conversion.
     #[cfg(RUSTC_IS_NIGHTLY)]
-    #[cfg(not(feature = "ascii"))]
     #[doc(include = "../README.md")]
     pub struct ReadmeDoctests;
 

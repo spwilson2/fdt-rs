@@ -24,12 +24,6 @@ default-features = false
 [dependencies.memoffset]
 version = "0.5.4"
 default-features = false
-[dependencies.cfg-if]
-version = "0.1.10"
-[dependencies.ascii]
-version = "1.0.0"
-default-features = false
-optional = true
 
 [dependencies]
 unsafe_unwrap = "0.1.0"

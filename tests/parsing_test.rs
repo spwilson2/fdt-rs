@@ -2,26 +2,11 @@ extern crate fdt_rs;
 
 use core::mem::size_of;
 use fdt_rs::DevTree;
-use fdt_rs::Str;
 use fdt_rs::fdt_util::props::DevTreePropState;
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
 pub const FDT: &[u8] = &_Wrapper(*include_bytes!("riscv64-virt.dtb")).0;
-
-#[macro_use]
-extern crate cfg_if;
-cfg_if! {
-    if #[cfg(feature = "ascii")] {
-        fn str_from_static(string: &str) -> &Str {
-            Str::from_ascii(string).unwrap()
-        }
-    } else {
-        fn str_from_static(string: &str) -> &Str {
-            string
-        }
-    }
-}
 
 #[test]
 fn test_readsize_advice() {
@@ -67,7 +52,7 @@ fn node_prop_iter() {
                             continue;
                         }
                         assert!(i < 64);
-                        let mut vec: &mut [Option<&Str>] = &mut [None; 64];
+                        let mut vec: &mut [Option<&str>] = &mut [None; 64];
                         if prop.get_strlist(&mut vec).is_err() {
                             continue;
                         }
@@ -90,7 +75,7 @@ fn find_first_compatible_works_on_initial_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
         let node = fdt
-            .find_first_compatible_node(str_from_static("riscv-virtio"))
+            .find_first_compatible_node("riscv-virtio")
             .unwrap();
         assert!(node.name().unwrap() == ""); // Root node has no "name"
     }
@@ -101,7 +86,7 @@ fn find_first_compatible_works_on_final_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
         let node = fdt
-            .find_first_compatible_node(str_from_static("riscv,clint0"))
+            .find_first_compatible_node("riscv,clint0")
             .unwrap();
         assert!(node.name().unwrap() == "clint@2000000");
     }
@@ -110,8 +95,8 @@ fn find_first_compatible_works_on_final_node() {
 fn find_all_compatible() {
     unsafe {
         let devtree = DevTree::new(FDT).unwrap();
-        let compat = str_from_static("virtio,mmio");
-        let exp = str_from_static("virtio_mmio@1000");
+        let compat = "virtio,mmio";
+        let exp = "virtio_mmio@1000";
         let mut count = 0;
         let exp_count = 8;
 

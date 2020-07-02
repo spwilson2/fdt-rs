@@ -26,12 +26,7 @@ the default `std` feature. Use this in `Cargo.toml`:
 [dependencies.fdt-rs]
 version = "0.2"
 default-features = false
-# features = ["ascii"]    # <--- Uncomment if you wish to use the ascii crate for str's
 ```
-
-The `"ascii"` feature will configure the `Str` type returned by string accessor
-methods to be of type `AsciiStr` provided by the [ascii crate](https://docs.rs/ascii/1.0.0/ascii/).
-Without this feature enabled, `str` references will be returned.
 
 ## Example
 
