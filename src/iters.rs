@@ -12,6 +12,23 @@ use super::{DevTree, DevTreeError, DevTreeItem, DevTreeNode, DevTreeProp};
 use crate::bytes_as_str;
 use crate::fdt_util::props::DevTreePropState;
 
+pub trait DevTreeFindNextTrait: Iterator + std::clone::Clone {
+    #[inline]
+    fn find_next<F>(&mut self, predicate: F) -> Option<(Self::Item, Self)>
+    where
+        F: Fn(&Self::Item) -> Result<bool, DevTreeError>,
+        <Self as Iterator>::Item: std::marker::Sized,
+        Self: std::marker::Sized
+    {
+        while let Some(i) = self.next() {
+            if let Ok(true) = predicate(&i) {
+                return Some((i, self.clone()));
+            }
+        }
+        None
+    }
+}
+
 #[derive(Clone)]
 pub struct DevTreeReserveEntryIter<'a> {
     offset: usize,

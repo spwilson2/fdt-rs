@@ -178,7 +178,7 @@ pub mod alloc_tests {
 
             let iter = idx.dfs_iter();
             for n in iter {
-                println!("{}", n.name());
+                println!("{}", n.name().unwrap());
             }
         }
     }
@@ -193,7 +193,7 @@ pub mod alloc_tests {
 
             let iter = idx.dfs_iter();
             for n in iter {
-                println!("{}", n.name());
+                println!("{}", n.name().unwrap());
             }
         }
     }
