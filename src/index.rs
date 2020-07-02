@@ -38,13 +38,11 @@ unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> Result<*mut T, DevTree
     Ok(ptr)
 }
 
-// TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
 pub struct DTIProp<'dt> {
     propbuf: &'dt [u8],
     nameoff: AssociatedOffset<'dt>,
 }
 
-// TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
 #[derive(Debug)]
 pub struct DevTreeIndex<'i, 'dt: 'i> {
     fdt: DevTree<'dt>,
@@ -63,13 +61,13 @@ struct DTIBuilder<'i, 'dt: 'i> {
 }
 
 struct DTINode<'i, 'dt: 'i> {
-    parent: *mut Self,
-    first_child: *mut Self,
+    parent: *const Self,
+    first_child: *const Self,
     /// `next` is either
     /// 1. the next sibling node
     /// 2. the next node in DFS (some higher up node)
     /// It is 1 if (*next).parent == self.parent, otherwise it is 2.
-    next: *mut Self,
+    next: *const Self,
     name: &'dt [u8],
 
     //NOTE: We store props like C arrays.
@@ -125,8 +123,9 @@ impl<'i, 'dt: 'i> DTIBuilder<'i, 'dt> {
                 );
 
                 (*self.prev_new_node).next = new_ptr;
-                if let Some(prev_sibling) = (*parent).next.as_mut() {
-                    prev_sibling.next = new_ptr;
+                if !(*parent).next.is_null() {
+                    let prev_sibling = (*parent).next as *mut DTINode;
+                    (*prev_sibling).next = new_ptr;
                 }
                 (*parent).next = new_ptr;
 
@@ -168,9 +167,12 @@ impl<'i, 'dt: 'i> DTIBuilder<'i, 'dt> {
         // Lifetime : self.cur_node is a pointer into a buffer with the same lifetime as self
         // Alignment: parsed_node verifies alignment when creating self.cur_node
         // NonNull  : We check that self.cur_node is non-null above
+        // Mutability: We cast from a *const to a *mut.
+        //             We're the only thread which has access to the buffer at this time, so this
+        //             is thread-safe.
         unsafe {
             // Change the current node back to the parent.
-            self.cur_node = (*self.cur_node).parent;
+            self.cur_node = (*self.cur_node).parent as *mut DTINode;
         }
 
         // We are no longer in a node header.
@@ -242,7 +244,6 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
                 DevTreeItem::Prop(_) => size += size_of::<DTIProp>(),
             }
         }
-        // TODO Check iter status
 
         // Unsafe okay.
         // - Size is not likely to be usize::MAX. (There's no way we find that many nodes.)
@@ -417,7 +418,6 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
 /***********  Node Siblings  *******/
 /***********************************/
 
-// TODO
 /// An iterator over [`DevTreeIndexNode`] objects of the [`DevTreeIndex`]
 #[derive(Clone)]
 pub struct DevTreeIndexNodeSiblingIter<'a, 'i: 'a, 'dt: 'i> {
