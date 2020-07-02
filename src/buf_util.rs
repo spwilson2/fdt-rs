@@ -3,6 +3,7 @@ use core::ptr::read_unaligned;
 
 #[derive(Debug, Copy, Clone)]
 pub enum SliceReadError {
+    InvalidOffset(usize, usize),
     UnexpectedEndOfInput,
 }
 
@@ -20,7 +21,7 @@ pub trait SliceRead<'a> {
 macro_rules! unchecked_be_read {
     ( $buf:ident, $type:ident , $off:expr ) => {
         (if $off + size_of::<$type>() > $buf.len() {
-            Err(SliceReadError::UnexpectedEndOfInput)
+            Err(SliceReadError::InvalidOffset($off, size_of::<$type>()))
         } else {
             Ok((*($buf.as_ptr().add($off) as *const $type)).to_be())
         })

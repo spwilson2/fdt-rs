@@ -84,6 +84,8 @@ pub struct DevTreeIter<'a> {
     /// Current offset into the flattened dt_struct section of the device tree.
     offset: AssociatedOffset<'a>,
     pub(crate) fdt: &'a DevTree<'a>,
+
+    //parse_error: Option<>
 }
 
 impl<'a> DevTreeIter<'a> {
@@ -332,13 +334,13 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
     }
 }
 
-pub(crate) struct DevTreeParseIter<'a> {
-    offset: AssociatedOffset<'a>,
-    fdt: &'a DevTree<'a>,
+pub(crate) struct DevTreeParseIter<'r, 'dt: 'r> {
+    offset: AssociatedOffset<'dt>,
+    fdt: &'r DevTree<'dt>,
 }
 
-impl<'a> DevTreeParseIter<'a> {
-    pub(crate) fn new(fdt: &'a DevTree) -> Self {
+impl<'r, 'dt:'r> DevTreeParseIter<'r, 'dt> {
+    pub(crate) fn new(fdt: &'r DevTree<'dt>) -> Self {
         Self {
             offset: AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf),
             fdt,
@@ -346,7 +348,7 @@ impl<'a> DevTreeParseIter<'a> {
     }
 }
 
-impl<'a> Iterator for DevTreeParseIter<'a> {
+impl<'dt, 'a:'dt> Iterator for DevTreeParseIter<'dt, 'a> {
     type Item = ParsedTok<'a>;
 
     #[inline]

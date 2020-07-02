@@ -132,13 +132,32 @@ fn find_all_compatible() {
 pub mod alloc_tests {
     use super::*;
     use fdt_rs::index;
+    use fdt_rs::index::DevTreeIndex;
+
+    static mut index_buf: &mut[u8] = &mut [0; 50_000];
+
+    struct FdtIndex<'dt> {
+        fdt: DevTree<'dt>,
+        index: DevTreeIndex<'dt, 'dt>,
+    }
+
+    fn get_fdt_index<'dt>() -> FdtIndex<'dt> {
+        unsafe {
+            let devtree = DevTree::new(FDT).unwrap();
+            let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
+            FdtIndex {
+                fdt: devtree.clone(),
+                index: index::DevTreeIndex::new(devtree, index_buf).unwrap(),
+            }
+        }
+    }
 
     // Test that we can create an index from a valid device tree
     #[test]
     fn create_index() {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
-            index::DevTreeIndex::new(&devtree, vec![0u8;500000].as_mut_slice()).unwrap();
+            index::DevTreeIndex::new(devtree, vec![0u8;500000].as_mut_slice()).unwrap();
         }
     }
 
@@ -149,7 +168,7 @@ pub mod alloc_tests {
             let devtree = DevTree::new(FDT).unwrap();
             let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
             let mut vec = vec![0u8; layout.size() + layout.align()];
-            index::DevTreeIndex::new(&devtree, vec.as_mut_slice()).unwrap();
+            index::DevTreeIndex::new(devtree, vec.as_mut_slice()).unwrap();
         }
     }
 
@@ -160,7 +179,7 @@ pub mod alloc_tests {
             let devtree = DevTree::new(FDT).unwrap();
             let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
             let mut vec = vec![0u8; layout.size() - 1];
-            index::DevTreeIndex::new(&devtree, vec.as_mut_slice()).expect_err("Expected failure.");
+            index::DevTreeIndex::new(devtree, vec.as_mut_slice()).expect_err("Expected failure.");
         }
     }
 
@@ -170,7 +189,22 @@ pub mod alloc_tests {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
             let mut data = vec![0u8;500000];
-            let idx = index::DevTreeIndex::new(&devtree, data.as_mut_slice()).unwrap();
+            let idx = index::DevTreeIndex::new(devtree, data.as_mut_slice()).unwrap();
+
+            let iter = idx.dfs_iter();
+            for n in iter {
+                println!("{}", n.name());
+            }
+        }
+    }
+
+    // Test that we can create an index from a valid device tree
+    #[test]
+    fn root_prop_iteration() {
+        unsafe {
+            let devtree = DevTree::new(FDT).unwrap();
+            let mut data = vec![0u8;500000];
+            let idx = index::DevTreeIndex::new(devtree, data.as_mut_slice()).unwrap();
 
             let iter = idx.dfs_iter();
             for n in iter {

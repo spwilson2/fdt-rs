@@ -14,11 +14,11 @@ use crate::iters::AssociatedOffset;
 use crate::unsafe_unwrap::UnsafeUnwrap;
 use crate::*;
 
+use core::alloc::Layout;
 use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::{null, null_mut};
 use core::str;
-use core::alloc::Layout;
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
     // Make sure we dont' go over the buffer
@@ -44,6 +44,24 @@ pub struct DTIProp<'dt> {
     nameoff: AssociatedOffset<'dt>,
 }
 
+impl<'r, 'a:'r, 'i:'a, 'dt:'i> DevTreePropState<'r, 'dt> for DevTreeIndexProp<'a, 'i, 'dt> {}
+impl<'r, 'a:'r, 'i:'a, 'dt:'i> private::DevTreePropStateBase<'r, 'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
+    #[inline]
+    fn propbuf(&'r self) -> &'dt [u8] {
+        self.prop.propbuf
+    }
+
+    #[inline]
+    fn nameoff(&'r self) -> AssociatedOffset<'dt> {
+        self.prop.nameoff
+    }
+
+    #[inline]
+    fn fdt(&'r self) -> &'r DevTree<'dt> {
+        &self.index.fdt
+    }
+}
+
 impl<'dt> From<&iters::ParsedProp<'dt>> for DTIProp<'dt> {
     fn from(prop: &iters::ParsedProp<'dt>) -> Self {
         Self {
@@ -55,15 +73,15 @@ impl<'dt> From<&iters::ParsedProp<'dt>> for DTIProp<'dt> {
 
 // TODO Add a wrapper around these that is easier to use (that includes a reference to the fdt).
 #[derive(Debug)]
-pub struct DevTreeIndex<'dt, 'i: 'dt> {
-    fdt: &'i DevTree<'dt>,
-    root: *mut DTINode<'dt, 'i>,
+pub struct DevTreeIndex<'i, 'dt: 'i> {
+    fdt: DevTree<'dt>,
+    root: *const DTINode<'i, 'dt>,
 }
 
-struct DTIBuilder<'dt, 'i: 'dt> {
+struct DTIBuilder<'i, 'dt: 'i> {
     buf: &'i mut [u8],
-    cur_node: *mut DTINode<'dt, 'i>,
-    prev_new_node: *mut DTINode<'dt, 'i>,
+    cur_node: *mut DTINode<'i, 'dt>,
+    prev_new_node: *mut DTINode<'i, 'dt>,
     front_off: usize,
 
     /// Devtree Props may only occur before child nodes.
@@ -71,7 +89,7 @@ struct DTIBuilder<'dt, 'i: 'dt> {
     in_node_header: bool,
 }
 
-struct DTINode<'dt, 'i: 'dt> {
+struct DTINode<'i, 'dt: 'i> {
     parent: *mut Self,
     first_child: *mut Self,
     /// `next` is either
@@ -88,7 +106,15 @@ struct DTINode<'dt, 'i: 'dt> {
     _index: PhantomData<&'i u8>,
 }
 
-impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
+impl<'i, 'dt: 'i> DTINode<'i, 'dt> {
+    unsafe fn prop_unchecked(&self, idx: usize) -> &'i DTIProp<'dt> {
+        // Get the pointer to the props after ourself.
+        let prop_ptr = (self as *const Self).add(1) as *const DTIProp;
+        return &*prop_ptr.add(idx);
+    }
+}
+
+impl<'i, 'dt: 'i> DTIBuilder<'i, 'dt> {
     fn allocate_aligned_ptr<T>(&mut self) -> Result<*mut T, DevTreeError> {
         unsafe {
             let ptr = aligned_ptr_in::<T>(self.buf, self.front_off)?;
@@ -146,10 +172,7 @@ impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
         Ok(())
     }
 
-    pub fn parsed_prop(
-        &mut self,
-        prop: &iters::ParsedProp<'dt>,
-    ) -> Result<(), DevTreeError> {
+    pub fn parsed_prop(&mut self, prop: &iters::ParsedProp<'dt>) -> Result<(), DevTreeError> {
         if !self.in_node_header {
             return Err(DevTreeError::ParseError);
         }
@@ -185,8 +208,7 @@ impl<'dt, 'i: 'dt> DTIBuilder<'dt, 'i> {
     }
 }
 
-impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
-
+impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     // Note: Our parsing method is unsafe - particularly due to its use of pointer arithmetic.
     //
     // We decide this is worth it for the following reasons:
@@ -195,11 +217,10 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
     //   - This parsing method only requires a single allocation. (The buffer given as buf)
     //   - This parsing method only requires a single iteration over the FDT.
     // - It is very easy to test in isolation; parsing is entirely enclosed to this module.
-    unsafe fn init_builder(
+    unsafe fn init_builder<'a>(
         buf: &'i mut [u8],
-        iter: &mut iters::DevTreeParseIter<'dt>,
-    ) -> Result<DTIBuilder<'dt, 'i>, DevTreeError> {
-
+        iter: &mut iters::DevTreeParseIter<'a, 'dt>,
+    ) -> Result<DTIBuilder<'i, 'dt>, DevTreeError> {
         let mut builder = DTIBuilder {
             front_off: 0,
             buf,
@@ -254,14 +275,18 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
         // - Size is not likely to be usize::MAX. (There's no way we find that many nodes.)
         // - Align is a result of align_of, so it will be a non-zero power of two
         unsafe {
-            return Ok(Layout::from_size_align_unchecked(size, align_of::<DTINode>()));
+            return Ok(Layout::from_size_align_unchecked(
+                size,
+                align_of::<DTINode>(),
+            ));
         }
     }
 
-    pub fn new(fdt: &'i DevTree<'dt>, buf: &'i mut [u8]) -> Result<Self, DevTreeError> {
-        let mut iter = iters::DevTreeParseIter::new(fdt);
+    pub fn new(fdt: DevTree<'dt>, buf: &'i mut [u8]) -> Result<Self, DevTreeError> {
 
-        let mut builder = unsafe {Self::init_builder(buf, &mut iter)}?;
+        let mut iter = iters::DevTreeParseIter::new(&fdt);
+
+        let mut builder = unsafe { Self::init_builder(buf, &mut iter) }?;
 
         let this = Self {
             fdt,
@@ -292,20 +317,80 @@ impl<'dt, 'i: 'dt> DevTreeIndex<'dt, 'i> {
 
     /// Returns a [`DevTreeIndexDFSNodeIter`] over [`DevTreeIndexNode`] objects of the
     /// [`DevTreeIndex`]
-    pub fn dfs_iter<'a>(&'a self) -> DevTreeIndexDFSNodeIter<'dt, 'i, 'a> {
+    pub fn dfs_iter<'a>(&'a self) -> DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
         DevTreeIndexDFSNodeIter::new(self)
     }
 }
 
+    ///// Map the supplied predicate over all [`DevTreeProp`] objects
+    /////
+    ///// If the predicate returns `true`, Some(([`DevTreeProp`], [`iters::DevTreePropIter`])) will be returned.
+    ///// The [`iters::DevTreePropIter`] may be used to continue searching through the tree.
+    /////
+    ///// # Example
+    /////
+    ///// ```
+    ///// # let mut devtree = fdt_rs::doctest::get_devtree();
+    ///// // Print the first "ns16550a" compatible node.
+    ///// if let Some((compatible_prop, _)) = devtree.find_prop(|prop| unsafe {
+    /////     Ok((prop.name()? == "compatible") && (prop.get_str()? == "ns16550a"))
+    /////     }) {
+    /////     println!("{}", compatible_prop.parent().name()?);
+    /////     # assert!(compatible_prop.parent().name()? == "uart@10000000");
+    ///// }
+    ///// # Ok::<(), fdt_rs::DevTreeError>(())
+    ///// ```
+    /////
+    //#[inline]
+    //pub fn find_prop<F>(
+    //    &self,
+    //    predicate: F,
+    //) -> Option<(DevTreeIndexProp<'a, 'i, 'dt>, DevTreeIndexNodePropIter<'a, 'i, 'dt>)>
+    //where
+    //    F: Fn(&DevTreeIndexProp) -> Result<bool, DevTreeError>,
+    //{
+    //    let mut iter = DevTreeIndexPropIter::new(&self);
+    //    iter.find(predicate)
+    //}
+
+    ///// Map the supplied predicate over all [`DevTreeNode`] objects
+    /////
+    ///// If the predicate returns `true`, Some(([`DevTreeItem`], [`iters::DevTreeNodeIter`])) will be returned.
+    ///// The [`iters::DevTreeNodeIter`] may be used to continue searching through the tree.
+    //#[inline]
+    //pub fn find_node<F>(
+    //    &'a self,
+    //    predicate: F,
+    //) -> Option<(DevTreeNode<'a>, iters::DevTreeNodeIter<'a>)>
+    //where
+    //    F: Fn(&DevTreeNode) -> Result<bool, DevTreeError>,
+    //{
+    //    DevTreeIndexNodeIter::new(self).find(predicate)
+    //}
+
+    ///// Returns the first [`DevTreeNode`] object with the provided compatible device tree property
+    ///// or `None` if none exists.
+    //#[inline]
+    //pub fn find_first_compatible_node(&'a self, string: &Str) -> Option<DevTreeNode<'a>> {
+    //    self.items().find_next_compatible_node(string)
+    //}
+//}
+
+/*
+ *
+ * Wrappers around the internal index types: 
+ *
+ * Wrappers include a reference to the index they are based on.
+ */
+
 #[derive(Clone)]
-pub struct DevTreeIndexNode<'dt, 'i: 'dt, 'a: 'i> {
-    pub index: &'a DevTreeIndex<'dt, 'i>,
-    node: &'a DTINode<'dt, 'i>,
+pub struct DevTreeIndexNode<'a, 'i: 'a, 'dt: 'i> {
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node: &'a DTINode<'i, 'dt>,
 }
 
-impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexNode<'dt, 'i, 'a> {
-
-    fn new(node: &'a DTINode<'dt, 'i>, index: &'a DevTreeIndex<'dt, 'i>) -> Self {
+impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
+    fn new(index: &'a DevTreeIndex<'i, 'dt>, node: &'a DTINode<'i, 'dt>) -> Self {
         Self { node, index }
     }
 
@@ -314,16 +399,31 @@ impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexNode<'dt, 'i, 'a> {
     }
 }
 
+#[derive(Clone)]
+pub struct DevTreeIndexProp<'a, 'i: 'a, 'dt: 'i> {
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node: &'a DTINode<'i, 'dt>,
+    prop: &'a DTIProp<'dt>,
+}
+
+/*********************************************************************************/
+/************************       Iterators     ************************************/
+/*********************************************************************************/
+
+
+/***********************************/
+/***********  DFS  *****************/
+/***********************************/
+
 /// An iterator over [`DevTreeIndexNode`] objects of the [`DevTreeIndex`]
 #[derive(Clone)]
 pub struct DevTreeIndexDFSNodeIter<'dt, 'i: 'dt, 'a: 'i> {
-    pub index: &'a DevTreeIndex<'dt, 'i>,
-    node: Option<&'a DTINode<'dt, 'i>>,
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node: Option<&'a DTINode<'i, 'dt>>,
 }
 
-impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexDFSNodeIter<'dt, 'i, 'a> {
-
-    pub(crate) fn new(index: &'a DevTreeIndex<'dt, 'i>) -> Self {
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexDFSNodeIter<'dt, 'i, 'a> {
+    pub(crate) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
         unsafe {
             let root_ref = index.root.as_ref().unsafe_unwrap();
 
@@ -334,18 +434,23 @@ impl<'dt, 'i: 'dt, 'a: 'i> DevTreeIndexDFSNodeIter<'dt, 'i, 'a> {
         }
     }
 
-    // See the documentation of [`DevTree::find_node`]
-    //#[inline]
-    //pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeNode<'a>, Self)>
-    //where
-    //    F: Fn(&DevTreeNode) -> Result<bool, DevTreeError>,
-    //{
-    //}
+    /// See the documentation of [`DevTree::find_node`]
+    #[inline]
+    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeIndexNode<'a, 'i, 'dt>, Self)>
+    where
+        F: Fn(&DevTreeIndexNode) -> Result<bool, DevTreeError>,
+    {
+        while let Some(i) = self.next() {
+            if let Ok(true) = predicate(&i) {
+                return Some((i, self.clone()));
+            }
+        }
+        None
+    }
 }
 
-impl<'dt, 'i: 'dt, 'a: 'i> Iterator for DevTreeIndexDFSNodeIter<'dt, 'i, 'a> {
-
-    type Item = DevTreeIndexNode<'dt, 'i, 'a>;
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexDFSNodeIter<'a, 'i, 'dt> {
+    type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(node) = self.node {
@@ -372,4 +477,124 @@ impl<'dt, 'i: 'dt, 'a: 'i> Iterator for DevTreeIndexDFSNodeIter<'dt, 'i, 'a> {
     }
 }
 
-// TODO Fuck load of utility methods.
+/***********************************/
+/***********  Node Siblings  *******/
+/***********************************/
+
+// TODO
+///// An iterator over [`DevTreeIndexNode`] objects of the [`DevTreeIndex`]
+//#[derive(Clone)]
+//pub struct DevTreeIndexNodeSiblingIter<'dt, 'i: 'dt, 'a: 'i> {
+//    pub index: &'a DevTreeIndex<'i, 'dt>,
+//    node: Option<&'a DTINode<'i, 'dt>>,
+//}
+//
+//impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodeSiblingIter<'dt, 'i, 'a> {
+//    pub(crate) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
+//        unsafe {
+//            let root_ref = index.root.as_ref().unsafe_unwrap();
+//
+//            Self {
+//                index,
+//                node: Some(root_ref),
+//            }
+//        }
+//    }
+//
+//    /// See the documentation of [`DevTree::find_node`]
+//    #[inline]
+//    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeIndexNode<'a, 'i, 'dt>, Self)>
+//    where
+//        F: Fn(&DevTreeIndexNode) -> Result<bool, DevTreeError>,
+//    {
+//        while let Some(i) = self.next() {
+//            if let Ok(true) = predicate(&i) {
+//                return Some((i, self.clone()));
+//            }
+//        }
+//        None
+//    }
+//}
+//
+//impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
+//    type Item = DevTreeIndexNode<'a, 'i, 'dt>;
+//
+//    fn next(&mut self) -> Option<Self::Item> {
+//        if let Some(node) = self.node {
+//            let cur = DevTreeIndexNode {
+//                index: self.index,
+//                node,
+//            };
+//
+//            // Unsafe is OK.
+//            // This is unsafe because we cast node pointers into references.
+//            // These references live as long as the DevTreeIndex and therefore the lifetimes match.
+//            unsafe {
+//                self.node = if let Some(next) = node.first_child.as_ref() {
+//                    Some(next)
+//                } else if let Some(next) = node.next.as_ref() {
+//                    Some(next)
+//                } else {
+//                    None
+//                }
+//            }
+//            return Some(cur);
+//        }
+//        None
+//    }
+//}
+
+/***********************************/
+/***********  Node Props ***********/
+/***********************************/
+
+/// An iterator over [`DevTreeIndexProp`] objects of a [`DevTreeIndexNode`]
+#[derive(Clone)]
+pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i> {
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node: &'a DTINode<'i, 'dt>,
+    prop_idx: usize,
+}
+
+/// An iterator over [`DevTreeIndexProp`] objects of a [`DevTreeIndexNode`]
+#[derive(Clone)]
+pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i> {
+    pub index: &'a DevTreeIndex<'i, 'dt>,
+    node: &'a DTINode<'i, 'dt>,
+}
+
+
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
+    /// See the documentation of [`DevTree::find_node`]
+    #[inline]
+    pub fn find<F>(&mut self, predicate: F) -> Option<(DevTreeIndexProp<'a, 'i, 'dt>, Self)>
+    where
+        F: Fn(&DevTreeIndexProp) -> Result<bool, DevTreeError>,
+    {
+        while let Some(i) = self.next() {
+            if let Ok(true) = predicate(&i) {
+                return Some((i, self.clone()));
+            }
+        }
+        None
+    }
+}
+
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
+    type Item = DevTreeIndexProp<'a, 'i, 'dt>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.prop_idx < self.node.num_props {
+            // Unsafe OK, we just checked the length of props.
+            let prop = unsafe { self.node.prop_unchecked(self.prop_idx) };
+
+            self.prop_idx += 1;
+            return Some(DevTreeIndexProp {
+                index: self.index,
+                node: self.node,
+                prop,
+            });
+        }
+        None
+    }
+}

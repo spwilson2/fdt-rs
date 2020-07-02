@@ -469,20 +469,20 @@ pub struct DevTreeProp<'dt> {
     nameoff: AssociatedOffset<'dt>,
 }
 
-impl<'dt> DevTreePropState<'dt> for DevTreeProp<'dt> {}
-impl<'dt> private::DevTreePropStateBase<'dt> for DevTreeProp<'dt> {
+impl<'r, 'dt: 'r> DevTreePropState<'r, 'dt> for DevTreeProp<'dt> {}
+impl<'r, 'dt: 'r> private::DevTreePropStateBase<'r, 'dt> for DevTreeProp<'dt> {
     #[inline]
-    fn propbuf(&self) -> &'dt [u8] {
+    fn propbuf(&'r self) -> &'dt [u8] {
         self.propbuf
     }
 
     #[inline]
-    fn nameoff(&self) -> AssociatedOffset<'dt> {
+    fn nameoff(&'r self) -> AssociatedOffset<'dt> {
         self.nameoff
     }
 
     #[inline]
-    fn fdt(&self) -> &'dt DevTree<'dt> {
+    fn fdt(&'r self) -> &'dt DevTree<'dt> {
         self.parent_iter.fdt
     }
 }
