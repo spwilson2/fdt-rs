@@ -29,14 +29,14 @@ extern crate memoffset;
 extern crate static_assertions;
 extern crate unsafe_unwrap;
 
-
 pub mod error;
+#[macro_use]
 pub mod base;
 pub mod index;
 pub mod prelude;
+pub(crate) mod priv_util;
 pub mod spec;
 pub mod traits;
-pub(crate) mod priv_util;
 
 // When the doctest feature is enabled, add these utility functions.
 #[cfg(feature = "doctest")]

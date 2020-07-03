@@ -16,7 +16,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
     }
 
     pub fn name(&self) -> Result<&'dt str, DevTreeError> {
-        from_utf8(self.node.name).map_err(|e| DevTreeError::StrError(e))
+        from_utf8(self.node.name).map_err(DevTreeError::StrError)
     }
 
     pub fn siblings(&self) -> DevTreeIndexNodeSiblingIter<'_, 'i, 'dt> {

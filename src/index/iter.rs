@@ -159,8 +159,6 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         }
     }
 
-    /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
-    /// or `None` if none exists.
     #[inline]
     pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
         // Create a clone and turn it into a node iterator
@@ -171,7 +169,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
             let mut iter = DevTreeIndexPropIter::from(iter.0);
             if let Some(compatible_prop) = iter.find_map(|prop| unsafe {
                 if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
-                    return Some(prop)
+                    return Some(prop);
                 }
                 None
             }) {
@@ -224,7 +222,7 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
             self.prop_idx = 0;
 
             // Otherwise move on to the next node.
-            self.node = cur_node.first_child().or(cur_node.next());
+            self.node = cur_node.first_child().or_else(|| cur_node.next());
             if let Some(cur_node) = self.node {
                 return Some(DevTreeIndexItem::Node(DevTreeIndexNode::new(
                     self.index, cur_node,

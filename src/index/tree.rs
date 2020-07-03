@@ -4,21 +4,20 @@ use core::mem::{align_of, size_of};
 use core::ptr::null_mut;
 
 use crate::base::item::DevTreeItem;
-use crate::base::iters::{DevTreeIter};
+use crate::base::iters::DevTreeIter;
 use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTok};
 use crate::base::DevTree;
 use crate::error::DevTreeError;
-use crate::prelude::*;
 //use super::item::DevTreeIndexItem;
 use super::iter::{DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
-use super::{DevTreeIndexItem, DevTreeIndexNode, DevTreeIndexProp};
+use super::DevTreeIndexNode;
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
     // Make sure we dont' go over the buffer
     let mut res = buf.as_ptr() as usize + buf.len() > (ptr as usize + size_of::<T>());
     // Make sure we don't go under the buffer
     res &= buf.as_ptr() as usize <= ptr as usize;
-    return res;
+    res
 }
 
 unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> Result<*mut T, DevTreeError> {
@@ -74,7 +73,7 @@ impl<'i, 'dt: 'i> DTINode<'i, 'dt> {
     pub unsafe fn prop_unchecked(&self, idx: usize) -> &'i DTIProp<'dt> {
         // Get the pointer to the props after ourself.
         let prop_ptr = (self as *const Self).add(1) as *const DTIProp;
-        return &*prop_ptr.add(idx);
+        &*prop_ptr.add(idx)
     }
 
     pub fn first_child(&self) -> Option<&'i DTINode<'i, 'dt>> {
@@ -129,7 +128,7 @@ impl<'i, 'dt: 'i> DTIBuilder<'i, 'dt> {
 
             if !parent.is_null() {
                 debug_assert!(
-                    self.prev_new_node != null_mut(),
+                    !self.prev_new_node.is_null(),
                     "cur_node should not have been initialized without also intializing \
                     prev_new_node"
                 );
@@ -261,10 +260,10 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         // - Size is not likely to be usize::MAX. (There's no way we find that many nodes.)
         // - Align is a result of align_of, so it will be a non-zero power of two
         unsafe {
-            return Ok(Layout::from_size_align_unchecked(
+            Ok(Layout::from_size_align_unchecked(
                 size,
                 align_of::<DTINode>(),
-            ));
+            ))
         }
     }
 

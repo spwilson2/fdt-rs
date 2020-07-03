@@ -143,7 +143,7 @@ impl<'a> DevTreeIter<'a> {
             let mut iter = DevTreePropIter::from(iter.0);
             if let Some(compatible_prop) = iter.find_map(|prop| unsafe {
                 if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
-                    return Some(prop)
+                    return Some(prop);
                 }
                 None
             }) {
@@ -226,12 +226,6 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodeIter<'a> {
 /// An iterator over [`DevTreeProp`] objects in the [`DevTree`]
 #[derive(Clone)]
 pub struct DevTreePropIter<'a>(DevTreeIter<'a>);
-
-impl<'a> DevTreePropIter<'a> {
-    pub(crate) fn new(fdt: &'a DevTree) -> Self {
-        Self(DevTreeIter::new(fdt))
-    }
-}
 
 impl<'a> Iterator for DevTreePropIter<'a> {
     type Item = DevTreeProp<'a>;

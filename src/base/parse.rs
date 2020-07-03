@@ -1,4 +1,4 @@
-use core::mem::{size_of, transmute};
+use core::mem::size_of;
 
 use num_traits::FromPrimitive;
 
@@ -7,14 +7,16 @@ use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_prop_header, FdtTok, MAX_NODE_NAME_LEN};
 
+/// # Safety
+/// TODO
 pub unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
     off: &mut usize,
 ) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
     // These are guarunteed.
     // We only produce associated offsets that are aligned to 32 bits and within the buffer.
-    assert!(buf.as_ptr().add(*off) as usize % size_of::<u32>() == 0);
-    assert!(buf.len() > (*off + size_of::<u32>()));
+    debug_assert!(buf.as_ptr().add(*off) as usize % size_of::<u32>() == 0);
+    debug_assert!(buf.len() > (*off + size_of::<u32>()));
 
     let fdt_tok_val = buf.unsafe_read_be_u32(*off)?;
     *off += size_of::<u32>();
@@ -32,10 +34,15 @@ pub unsafe fn next_devtree_token<'a>(
             Ok(Some(ParsedTok::BeginNode(ParsedBeginNode { name })))
         }
         Some(FdtTok::Prop) => {
-            // Re-interpret the data as a fdt_header
-            let header = transmute::<&u8, &fdt_prop_header>(&buf[*off]);
+            // Re-interpret the data as a fdt_header.
+            //
+            // Allow lint because we always move the pointer in u32 increments.
+            // Casting up from u8 alignment to u32 alignmnet is safe.
+            assert_eq_align!(fdt_prop_header, u32);
+            #[allow(clippy::cast_ptr_alignment)]
+            let header = &*(&buf[*off] as *const u8 as *const fdt_prop_header);
             // Get length from header
-            let prop_len = u32::from((*header).len) as usize;
+            let prop_len = u32::from(header.len) as usize;
 
             // Move past the header to the data;
             *off += size_of::<fdt_prop_header>();

@@ -1,12 +1,12 @@
 use core::mem::size_of;
 
 use crate::error::DevTreeError;
-use crate::prelude::*;
+
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_header, FDT_MAGIC};
 
-use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreePropIter, DevTreeReserveEntryIter};
-use super::{DevTreeItem, DevTreeNode, DevTreeProp};
+use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreeReserveEntryIter};
+use super::DevTreeNode;
 
 #[inline]
 const fn is_aligned<T>(offset: usize) -> bool {
