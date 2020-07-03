@@ -44,7 +44,6 @@ use core::mem::size_of;
 use buf_util::{SliceRead, SliceReadError};
 use spec::{fdt_header, Phandle, FDT_MAGIC};
 use fdt_util::props::DevTreePropState;
-use iters::AssociatedOffset;
 
 pub mod prelude;
 use crate::prelude::*;
@@ -438,7 +437,7 @@ impl<'a> DevTreeNode<'a> {
 pub struct DevTreeProp<'dt> {
     parent_iter: iters::DevTreeIter<'dt>,
     propbuf: &'dt [u8],
-    nameoff: AssociatedOffset<'dt>,
+    nameoff: usize,
 }
 
 impl<'r, 'dt: 'r> DevTreePropState<'r, 'dt> for DevTreeProp<'dt> {}
@@ -449,7 +448,7 @@ impl<'r, 'dt: 'r> private::DevTreePropStateBase<'r, 'dt> for DevTreeProp<'dt> {
     }
 
     #[inline]
-    fn nameoff(&'r self) -> AssociatedOffset<'dt> {
+    fn nameoff(&'r self) -> usize {
         self.nameoff
     }
 

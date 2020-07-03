@@ -10,7 +10,7 @@
 #![allow(dead_code)] // TODO/FIXME
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-use crate::iters::{AssociatedOffset, FindNext};
+use crate::iters::FindNext;
 use crate::unsafe_unwrap::UnsafeUnwrap;
 use crate::*;
 
@@ -38,9 +38,9 @@ unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> Result<*mut T, DevTree
     Ok(ptr)
 }
 
-pub struct DTIProp<'dt> {
+struct DTIProp<'dt> {
     propbuf: &'dt [u8],
-    nameoff: AssociatedOffset<'dt>,
+    nameoff: usize,
 }
 
 #[derive(Debug)]
@@ -394,7 +394,7 @@ impl<'r, 'a:'r, 'i:'a, 'dt:'i> private::DevTreePropStateBase<'r, 'dt> for DevTre
     }
 
     #[inline]
-    fn nameoff(&'r self) -> AssociatedOffset<'dt> {
+    fn nameoff(&'r self) -> usize {
         self.prop.nameoff
     }
 

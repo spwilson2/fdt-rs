@@ -35,19 +35,6 @@ pub struct DevTreeReserveEntryIter<'a> {
     fdt: &'a DevTree<'a>,
 }
 
-#[repr(transparent)]
-#[derive(Clone, Copy, Debug)]
-pub struct AssociatedOffset<'a>(pub usize, core::marker::PhantomData<&'a [u8]>);
-
-impl<'a> AssociatedOffset<'a> {
-    pub fn new(val: usize, buf: &'a [u8]) -> Self {
-        // NOTE: Doesn't even check alignment.
-        // (Both size and alignment must be guarunteed elsewhere.)
-        assert!(val < buf.len());
-        Self(val, core::marker::PhantomData)
-    }
-}
-
 impl<'a> DevTreeReserveEntryIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
@@ -99,7 +86,7 @@ pub struct DevTreeIter<'a> {
     current_prop_parent_off: Option<NonZeroUsize>,
 
     /// Current offset into the flattened dt_struct section of the device tree.
-    offset: AssociatedOffset<'a>,
+    offset: usize,
     pub(crate) fdt: &'a DevTree<'a>,
 
     //parse_error: Option<>
@@ -109,7 +96,7 @@ impl FindNext for DevTreeIter<'_> {}
 impl<'a> DevTreeIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
-            offset: AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf),
+            offset: fdt.off_dt_struct(),
             current_prop_parent_off: None,
             fdt,
         }
@@ -120,7 +107,7 @@ impl<'a> DevTreeIter<'a> {
             Some(offset) => Some(DevTreeIter {
                 fdt: self.fdt,
                 current_prop_parent_off: self.current_prop_parent_off,
-                offset: AssociatedOffset::new(offset.get(), self.fdt.buf),
+                offset: offset.get(),
             }),
             None => None,
         }
@@ -188,7 +175,7 @@ impl<'a> DevTreeIter<'a> {
             match res {
                 Ok(Some(ParsedTok::BeginNode(node))) => {
                     self.current_prop_parent_off =
-                        unsafe { Some(NonZeroUsize::new_unchecked(old_offset.0)) };
+                        unsafe { Some(NonZeroUsize::new_unchecked(old_offset)) };
                     return Some(DevTreeItem::Node(DevTreeNode {
                         parse_iter: self.clone(),
                         name: bytes_as_str(node.name).map_err(|e| e.into()),
@@ -203,7 +190,7 @@ impl<'a> DevTreeIter<'a> {
                     return Some(DevTreeItem::Prop(DevTreeProp {
                         parent_iter: prev_node,
                         propbuf: prop.prop_buf,
-                        nameoff: AssociatedOffset::new(prop.name_offset.0, self.fdt.buf),
+                        nameoff: prop.name_offset,
                     }));
                 }
                 Ok(Some(ParsedTok::EndNode)) => {
@@ -300,14 +287,14 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
 }
 
 pub(crate) struct DevTreeParseIter<'r, 'dt: 'r> {
-    offset: AssociatedOffset<'dt>,
+    offset: usize,
     fdt: &'r DevTree<'dt>,
 }
 
 impl<'r, 'dt:'r> DevTreeParseIter<'r, 'dt> {
     pub(crate) fn new(fdt: &'r DevTree<'dt>) -> Self {
         Self {
-            offset: AssociatedOffset::new(fdt.off_dt_struct(), fdt.buf),
+            offset: fdt.off_dt_struct(),
             fdt,
         }
     }
@@ -333,7 +320,7 @@ pub(crate) struct ParsedBeginNode<'a> {
 
 pub(crate) struct ParsedProp<'a> {
     pub(crate) prop_buf: &'a [u8],
-    pub(crate) name_offset: AssociatedOffset<'a>,
+    pub(crate) name_offset: usize,
 }
 
 pub(crate) enum ParsedTok<'a> {
@@ -345,48 +332,48 @@ pub(crate) enum ParsedTok<'a> {
 
 unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
-    off: &mut AssociatedOffset<'a>,
+    off: &mut usize,
 ) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
     // These are guarunteed.
     // We only produce associated offsets that are aligned to 32 bits and within the buffer.
-    assert!(buf.as_ptr().add(off.0) as usize % size_of::<u32>() == 0);
-    assert!(buf.len() > (off.0 + size_of::<u32>()));
+    assert!(buf.as_ptr().add(*off) as usize % size_of::<u32>() == 0);
+    assert!(buf.len() > (*off + size_of::<u32>()));
 
-    let fdt_tok_val = buf.unsafe_read_be_u32(off.0)?;
-    off.0 += size_of::<u32>();
+    let fdt_tok_val = buf.unsafe_read_be_u32(*off)?;
+    *off += size_of::<u32>();
 
     match FromPrimitive::from_u32(fdt_tok_val) {
         Some(FdtTok::BeginNode) => {
             // Read the name (or return an error if the device tree is incorrectly formatted).
-            let name = buf.nread_bstring0(off.0, spec::MAX_NODE_NAME_LEN - 1)?;
+            let name = buf.nread_bstring0(*off, spec::MAX_NODE_NAME_LEN - 1)?;
 
             // Move to the end of name (adding null byte).
-            off.0 += name.len() + 1;
+            *off += name.len() + 1;
             // Per spec - align back to u32.
-            off.0 += buf.as_ptr().add(off.0).align_offset(size_of::<u32>());
+            *off += buf.as_ptr().add(*off).align_offset(size_of::<u32>());
 
             Ok(Some(ParsedTok::BeginNode(ParsedBeginNode { name })))
         }
         Some(FdtTok::Prop) => {
             // Re-interpret the data as a fdt_header
-            let header = core::mem::transmute::<&u8, &fdt_prop_header>(&buf[off.0]);
+            let header = core::mem::transmute::<&u8, &fdt_prop_header>(&buf[*off]);
             // Get length from header
             let prop_len = u32::from((*header).len) as usize;
 
             // Move past the header to the data;
-            off.0 += size_of::<fdt_prop_header>();
+            *off += size_of::<fdt_prop_header>();
             // Create a slice using the offset
-            let prop_buf = &buf[off.0..off.0 + prop_len];
+            let prop_buf = &buf[*off..*off + prop_len];
             // Move the offset past the prop data.
-            off.0 += prop_buf.len();
+            *off += prop_buf.len();
             // Align back to u32.
-            off.0 += buf.as_ptr().add(off.0).align_offset(size_of::<u32>());
+            *off += buf.as_ptr().add(*off).align_offset(size_of::<u32>());
 
             let name_offset = u32::from(header.nameoff) as usize;
             if name_offset > buf.len() {
                 return Err(DevTreeError::ParseError);
             }
-            let name_offset = AssociatedOffset::new(name_offset, buf);
+            let name_offset = name_offset;
 
             Ok(Some(ParsedTok::Prop(ParsedProp {
                 name_offset,

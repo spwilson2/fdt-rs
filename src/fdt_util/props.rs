@@ -156,7 +156,7 @@ impl<'r, 'dt:'r, T: DevTreePropState<'r, 'dt> + ?Sized> PropTraitWrap<'r, T> {
 
     pub(self) fn get_prop_str(&self) -> Result<&'dt Str, DevTreeError> {
         unsafe {
-            let str_offset = self.0.fdt().off_dt_strings() + self.0.nameoff().0;
+            let str_offset = self.0.fdt().off_dt_strings() + self.0.nameoff();
             let name = self.0.fdt().buf.read_bstring0(str_offset)?;
             Ok(bytes_as_str(name)?)
         }
