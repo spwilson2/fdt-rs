@@ -44,12 +44,6 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
 #[derive(Clone)]
 pub struct DevTreeIndexNodeSiblingIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexIter<'a, 'i, 'dt>);
 
-impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
-    pub(super) fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
-        Self(DevTreeIndexIter::from_node(node))
-    }
-}
-
 impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>> for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
     fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
         Self(iter)
@@ -72,12 +66,6 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> 
 #[derive(Clone)]
 pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexIter<'a, 'i, 'dt>);
 
-impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
-    pub(super) fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
-        Self(DevTreeIndexIter::from_node(node))
-    }
-}
-
 impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>> for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
     fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
         Self(iter)
@@ -89,13 +77,7 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for item in &mut self.0 {
-            match item {
-                DevTreeIndexItem::Node(_) => break,
-                DevTreeIndexItem::Prop(p) => return Some(p),
-            }
-        }
-        None
+        self.0.next_node_prop()
     }
 }
 

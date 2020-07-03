@@ -13,7 +13,7 @@ use crate::base::DevTree;
 use crate::error::DevTreeError;
 use crate::prelude::*;
 use super::tree::{DevTreeIndex, DTINode, DTIProp};
-use super::iter::{DevTreeIndexNodeSiblingIter, DevTreeIndexNodePropIter};
+use super::iter::{DevTreeIndexIter, DevTreeIndexNodeSiblingIter, DevTreeIndexNodePropIter};
 
 #[derive(Clone)]
 pub struct DevTreeIndexNode<'a, 'i: 'a, 'dt: 'i> {
@@ -31,11 +31,11 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
     }
 
     pub fn siblings(&self) -> DevTreeIndexNodeSiblingIter<'_, 'i, 'dt> {
-        DevTreeIndexNodeSiblingIter::from_node(self.clone())
+        DevTreeIndexNodeSiblingIter::from(DevTreeIndexIter::from_node(self.clone()))
     }
 
     pub fn props(&self) -> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
         let node = DevTreeIndexNode::new(self.index, self.node);
-        DevTreeIndexNodePropIter::from_node(node)
+        DevTreeIndexNodePropIter::from(DevTreeIndexIter::from_node(self.clone()))
     }
 }
