@@ -79,19 +79,23 @@ impl<'i, 'dt: 'i> DTINode<'i, 'dt> {
         unsafe { self.first_child.as_ref() }
     }
 
-    pub fn next(&self) -> Option<&'i DTINode<'i, 'dt>> {
-        unsafe { self.next.as_ref() }
+    pub fn next_dfs(&self) -> Option<&'i DTINode<'i, 'dt>> {
+        unsafe { self.first_child().or_else(|| self.next.as_ref()) }
     }
 
     pub fn next_sibling(&self) -> Option<&'i DTINode<'i, 'dt>> {
         unsafe {
-            if let Some(next) = self.next.as_ref() {
+            self.next.as_ref().and_then(|next| {
                 if next.parent == self.parent {
                     return Some(next);
                 }
-            }
+                None
+            })
         }
-        None
+    }
+
+    pub fn parent(&self) -> Option<&'i DTINode<'i, 'dt>> {
+        unsafe { self.parent.as_ref() }
     }
 }
 

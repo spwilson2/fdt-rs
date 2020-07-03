@@ -148,12 +148,11 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
 
     #[inline]
     pub fn next_sibling(&mut self) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
-        if let Some(node) = self.node {
+        self.node.and_then(|node| {
             let cur = DevTreeIndexNode::new(self.index, node);
             self.node = node.next_sibling();
-            return Some(cur);
-        }
-        None
+            Some(cur)
+        })
     }
 }
 
@@ -166,7 +165,7 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
     // values. Effectively, we want callers to be able to choose if they need a node or a prop.
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(cur_node) = self.node {
+        self.node.and_then(|cur_node| {
             // Check if we've returned the first current node.
             if !self.initial_node_returned {
                 self.initial_node_returned = true;
@@ -189,13 +188,9 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
             self.prop_idx = 0;
 
             // Otherwise move on to the next node.
-            self.node = cur_node.first_child().or_else(|| cur_node.next());
-            if let Some(cur_node) = self.node {
-                return Some(DevTreeIndexItem::Node(DevTreeIndexNode::new(
-                    self.index, cur_node,
-                )));
-            }
-        }
-        None
+            self.node = cur_node.next_dfs();
+            self.node
+                .map(|cur_node| DevTreeIndexItem::Node(DevTreeIndexNode::new(self.index, cur_node)))
+        })
     }
 }

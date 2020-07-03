@@ -76,7 +76,7 @@ pub struct DevTreeIter<'a> {
 def_common_iter_funcs!($ DevTreeNode<'a>, DevTreeProp<'a>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
 
 impl<'a> DevTreeIter<'a> {
-    pub(crate) fn new(fdt: &'a DevTree) -> Self {
+    pub fn new(fdt: &'a DevTree) -> Self {
         Self {
             offset: fdt.off_dt_struct(),
             current_prop_parent_off: None,
@@ -100,17 +100,23 @@ impl<'a> DevTreeIter<'a> {
     );
 
     fn_next_prop!(
-        /// Returns the next [`DevTreeProp`] found in the Device Tree (regardless if it occurs on
-        /// a different [`DevTreeNode`]
+        /// Returns the next [`DevTreeProp`] found in the [`DevTree`]. This property may be on
+        /// a different [`DevTreeNode`] than the previous property.
+        ///
+        /// (See [`next_node_prop`] if a property should be returned only if it exists on this
+        /// node.)
+        ///
+        /// [`next_node_prop`]: #DevTreeIter::next_node_prop
     );
 
     fn_next_node_prop!(
-        /// Returns the next [`DevTreeProp`] on the current node within in the Device Tree
+        /// Returns the next [`DevTreeProp`] of the current [`DevTreeNode`] or `None` if
+        /// the node does not have any more properties.
     );
 
     fn_find_next_compatible_node!(
         /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
-        /// or `None` if none exists.
+        /// or [`Option::None`] if none exists.
     );
 
     fn next_devtree_item(&mut self) -> Option<DevTreeItem<'a>> {
