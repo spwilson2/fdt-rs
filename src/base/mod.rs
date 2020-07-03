@@ -7,6 +7,9 @@ pub mod prop;
 #[doc(hidden)]
 pub mod tree;
 
+#[macro_use]
+mod iter_macro;
+
 pub mod iters;
 pub mod parse;
 

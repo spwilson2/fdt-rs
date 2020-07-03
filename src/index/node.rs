@@ -1,6 +1,6 @@
 use core::str::from_utf8;
 
-use super::iter::{DevTreeIndexIter, DevTreeIndexNodePropIter, DevTreeIndexNodeSiblingIter};
+use super::iters::{DevTreeIndexIter, DevTreeIndexNodePropIter, DevTreeIndexNodeSiblingIter};
 use super::tree::{DTINode, DevTreeIndex};
 use crate::error::DevTreeError;
 

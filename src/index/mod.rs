@@ -7,13 +7,14 @@
 
 #[doc(hidden)]
 pub mod item;
-pub mod iter;
 #[doc(hidden)]
 pub mod node;
 #[doc(hidden)]
 pub mod prop;
 #[doc(hidden)]
 pub mod tree;
+
+pub mod iters;
 
 #[doc(inline)]
 pub use item::DevTreeIndexItem;

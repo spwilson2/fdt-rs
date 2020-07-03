@@ -3,14 +3,13 @@ use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::null_mut;
 
+use super::iters::{DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
+use super::DevTreeIndexNode;
 use crate::base::item::DevTreeItem;
 use crate::base::iters::DevTreeIter;
 use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTok};
 use crate::base::DevTree;
 use crate::error::DevTreeError;
-//use super::item::DevTreeIndexItem;
-use super::iter::{DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
-use super::DevTreeIndexNode;
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
     // Make sure we dont' go over the buffer

@@ -1,3 +1,6 @@
+#[cfg(doc)]
+use crate::base::*;
+
 use core::mem::size_of;
 
 use crate::error::DevTreeError;

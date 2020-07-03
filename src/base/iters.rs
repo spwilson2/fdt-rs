@@ -73,6 +73,8 @@ pub struct DevTreeIter<'a> {
     //parse_error: Option<>
 }
 
+def_common_iter_funcs!($ DevTreeNode<'a>, DevTreeProp<'a>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
+
 impl<'a> DevTreeIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
@@ -93,65 +95,23 @@ impl<'a> DevTreeIter<'a> {
         }
     }
 
-    /// Returns the next [`DevTreeNode`] found in the Device Tree
-    #[inline]
-    pub fn next_node(&mut self) -> Option<DevTreeNode<'a>> {
-        loop {
-            match self.next() {
-                Some(DevTreeItem::Node(n)) => return Some(n),
-                Some(_) => {
-                    continue;
-                }
-                _ => return None,
-            }
-        }
-    }
+    fn_next_node!(
+        /// Returns the next [`DevTreeNode`] found in the Device Tree
+    );
 
-    /// Returns the next [`DevTreeProp`] found in the Device Tree (regardless if it occurs on
-    /// a different [`DevTreeNode`]
-    #[inline]
-    pub fn next_prop(&mut self) -> Option<DevTreeProp<'a>> {
-        loop {
-            match self.next() {
-                Some(DevTreeItem::Prop(p)) => return Some(p),
-                // Return if a new node or an EOF.
-                Some(DevTreeItem::Node(_)) => continue,
-                _ => return None,
-            }
-        }
-    }
+    fn_next_prop!(
+        /// Returns the next [`DevTreeProp`] found in the Device Tree (regardless if it occurs on
+        /// a different [`DevTreeNode`]
+    );
 
-    /// Returns the next [`DevTreeProp`] on the current node within in the Device Tree
-    #[inline]
-    pub fn next_node_prop(&mut self) -> Option<DevTreeProp<'a>> {
-        match self.next() {
-            Some(DevTreeItem::Prop(p)) => Some(p),
-            // Return if a new node or an EOF.
-            _ => None,
-        }
-    }
+    fn_next_node_prop!(
+        /// Returns the next [`DevTreeProp`] on the current node within in the Device Tree
+    );
 
-    /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
-    /// or `None` if none exists.
-    #[inline]
-    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a>> {
-        // Create a clone and turn it into a node iterator
-        let mut iter = DevTreeNodeIter::from(self.clone());
-        // If there is another node
-        if iter.next().is_some() {
-            // Iterate through its properties looking for the compatible string.
-            let mut iter = DevTreePropIter::from(iter.0);
-            if let Some(compatible_prop) = iter.find_map(|prop| unsafe {
-                if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
-                    return Some(prop);
-                }
-                None
-            }) {
-                return Some(compatible_prop.node());
-            }
-        }
-        None
-    }
+    fn_find_next_compatible_node!(
+        /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
+        /// or `None` if none exists.
+    );
 
     fn next_devtree_item(&mut self) -> Option<DevTreeItem<'a>> {
         loop {

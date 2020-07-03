@@ -108,6 +108,8 @@ pub struct DevTreeIndexIter<'a, 'i: 'a, 'dt: 'i> {
     initial_node_returned: bool,
 }
 
+def_common_iter_funcs!($ DevTreeIndexNode<'a, 'i, 'dt>, DevTreeIndexProp<'a, 'i, 'dt>, DevTreeIndexNodeIter, DevTreeIndexPropIter, DevTreeIndexItem);
+
 impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
     #[inline]
     pub(super) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
@@ -115,6 +117,24 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         this.initial_node_returned = false;
         this
     }
+
+    fn_next_node!(
+        /// Returns the next [`DevTreeIndexNode`] found in the Device Tree
+    );
+
+    fn_next_prop!(
+        /// Returns the next [`DevTreeIndexProp`] found in the Device Tree (regardless if it occurs on
+        /// a different [`DevTreeIndexNode`]
+    );
+
+    fn_next_node_prop!(
+        /// Returns the next [`DevTreeIndexProp`] on the current node within in the Device Tree
+    );
+
+    fn_find_next_compatible_node!(
+        /// Returns the next [`DevTreeIndexNode`] object with the provided compatible device tree property
+        /// or `None` if none exists.
+    );
 
     #[inline]
     pub fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
@@ -124,59 +144,6 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
             node: Some(node.node),
             prop_idx: 0,
         }
-    }
-
-    #[inline]
-    pub fn next_node(&mut self) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
-        loop {
-            match self.next() {
-                Some(DevTreeIndexItem::Node(n)) => return Some(n),
-                Some(_) => {
-                    continue;
-                }
-                _ => return None,
-            }
-        }
-    }
-
-    #[inline]
-    pub fn next_prop(&mut self) -> Option<DevTreeIndexProp<'a, 'i, 'dt>> {
-        loop {
-            match self.next() {
-                Some(DevTreeIndexItem::Prop(p)) => return Some(p),
-                Some(DevTreeIndexItem::Node(_)) => continue,
-                _ => return None,
-            }
-        }
-    }
-
-    #[inline]
-    pub fn next_node_prop(&mut self) -> Option<DevTreeIndexProp<'a, 'i, 'dt>> {
-        match self.next() {
-            Some(DevTreeIndexItem::Prop(p)) => Some(p),
-            // Return if a new node or an EOF.
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
-        // Create a clone and turn it into a node iterator
-        let mut iter = DevTreeIndexNodeIter::from(self.clone());
-        // If there is another node
-        if iter.next().is_some() {
-            // Iterate through its properties looking for the compatible string.
-            let mut iter = DevTreeIndexPropIter::from(iter.0);
-            if let Some(compatible_prop) = iter.find_map(|prop| unsafe {
-                if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
-                    return Some(prop);
-                }
-                None
-            }) {
-                return Some(compatible_prop.node());
-            }
-        }
-        None
     }
 
     #[inline]
