@@ -1,3 +1,6 @@
+#[cfg(doc)]
+use crate::index::DevTreeIndex;
+
 use crate::priv_util::SliceReadError;
 use core::str::Utf8Error;
 

@@ -1,5 +1,3 @@
-//! This module is only enabled for `#[cfg(any(feature = "alloc", feature = "std"))]`.
-//!
 //! This module provides advanced DevTree utilities which require an index over a flattened device
 //! tree to remain performant. As such, we rely on an allocator to provide heap allocations to
 //! generate and store this index.

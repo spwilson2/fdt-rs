@@ -19,7 +19,6 @@ impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
     }
 }
 
-impl FindNext for DevTreeIndexNodeIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
@@ -43,7 +42,6 @@ impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
     }
 }
 
-impl FindNext for DevTreeIndexNodeSiblingIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
@@ -67,7 +65,6 @@ impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
     }
 }
 
-impl FindNext for DevTreeIndexNodePropIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
 
@@ -91,7 +88,6 @@ impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
     }
 }
 
-impl FindNext for DevTreeIndexPropIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
 
@@ -163,6 +159,8 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         }
     }
 
+    /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
+    /// or `None` if none exists.
     #[inline]
     pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
         // Create a clone and turn it into a node iterator
@@ -171,8 +169,11 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         if iter.next().is_some() {
             // Iterate through its properties looking for the compatible string.
             let mut iter = DevTreeIndexPropIter::from(iter.0);
-            if let Some((compatible_prop, _)) = iter.find_next(|prop| unsafe {
-                Ok((prop.name()? == "compatible") && (prop.get_str()? == string))
+            if let Some(compatible_prop) = iter.find_map(|prop| unsafe {
+                if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
+                    return Some(prop)
+                }
+                None
             }) {
                 return Some(compatible_prop.node());
             }
@@ -191,7 +192,6 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
     }
 }
 
-impl FindNext for DevTreeIndexIter<'_, '_, '_> {}
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexItem<'a, 'i, 'dt>;
 

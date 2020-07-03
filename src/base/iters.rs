@@ -1,4 +1,4 @@
-//! This module provides a collection of iterative parsers of the buf provided to initialze
+//! This module provides a collection of iterative parsers of the buf provided to initialize
 //! a [`DevTree`].
 use core::mem::size_of;
 use core::num::NonZeroUsize;
@@ -9,23 +9,6 @@ use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
 use crate::error::DevTreeError;
 use crate::prelude::*;
 use crate::spec::fdt_reserve_entry;
-
-pub trait FindNext: Iterator + core::clone::Clone {
-    #[inline]
-    fn find_next<F>(&mut self, predicate: F) -> Option<(Self::Item, Self)>
-    where
-        F: Fn(&Self::Item) -> Result<bool, DevTreeError>,
-        <Self as Iterator>::Item: core::marker::Sized,
-        Self: core::marker::Sized,
-    {
-        while let Some(i) = self.next() {
-            if let Ok(true) = predicate(&i) {
-                return Some((i, self.clone()));
-            }
-        }
-        None
-    }
-}
 
 /// An iterator over [`fdt_reserve_entry`] objects within the FDT.
 #[derive(Clone)]
@@ -90,7 +73,6 @@ pub struct DevTreeIter<'a> {
     //parse_error: Option<>
 }
 
-impl FindNext for DevTreeIter<'_> {}
 impl<'a> DevTreeIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self {
@@ -159,8 +141,11 @@ impl<'a> DevTreeIter<'a> {
         if iter.next().is_some() {
             // Iterate through its properties looking for the compatible string.
             let mut iter = DevTreePropIter::from(iter.0);
-            if let Some((compatible_prop, _)) = iter.find_next(|prop| unsafe {
-                Ok((prop.name()? == "compatible") && (prop.get_str()? == string))
+            if let Some(compatible_prop) = iter.find_map(|prop| unsafe {
+                if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
+                    return Some(prop)
+                }
+                None
             }) {
                 return Some(compatible_prop.node());
             }
@@ -225,7 +210,6 @@ impl<'a> DevTreeNodeIter<'a> {
     }
 }
 
-impl FindNext for DevTreeNodeIter<'_> {}
 impl<'a> Iterator for DevTreeNodeIter<'a> {
     type Item = DevTreeNode<'a>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -243,7 +227,6 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodeIter<'a> {
 #[derive(Clone)]
 pub struct DevTreePropIter<'a>(DevTreeIter<'a>);
 
-impl FindNext for DevTreePropIter<'_> {}
 impl<'a> DevTreePropIter<'a> {
     pub(crate) fn new(fdt: &'a DevTree) -> Self {
         Self(DevTreeIter::new(fdt))
@@ -267,7 +250,6 @@ impl<'a> From<DevTreeIter<'a>> for DevTreePropIter<'a> {
 #[derive(Clone)]
 pub struct DevTreeNodePropIter<'a>(DevTreeIter<'a>);
 
-impl FindNext for DevTreeNodePropIter<'_> {}
 impl<'a> DevTreeNodePropIter<'a> {
     pub(crate) fn new(node: &'a DevTreeNode) -> Self {
         Self(node.parse_iter.clone())

@@ -4,7 +4,7 @@ use core::mem::{align_of, size_of};
 use core::ptr::null_mut;
 
 use crate::base::item::DevTreeItem;
-use crate::base::iters::{DevTreeIter, FindNext};
+use crate::base::iters::{DevTreeIter};
 use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTok};
 use crate::base::DevTree;
 use crate::error::DevTreeError;
@@ -324,56 +324,11 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     }
 
     #[inline]
-    pub fn find_item<F>(
-        &'_ self,
-        predicate: F,
-    ) -> Option<(DevTreeIndexItem<'_, 'i, 'dt>, DevTreeIndexIter<'_, 'i, 'dt>)>
-    where
-        F: Fn(&DevTreeIndexItem) -> Result<bool, DevTreeError>,
-    {
-        self.items().find_next(predicate)
-    }
-
-    #[inline]
-    pub fn find_prop<F>(
-        &self,
-        predicate: F,
-    ) -> Option<(
-        DevTreeIndexProp<'_, 'i, 'dt>,
-        DevTreeIndexPropIter<'_, 'i, 'dt>,
-    )>
-    where
-        F: Fn(&DevTreeIndexProp) -> Result<bool, DevTreeError>,
-    {
-        self.props().find_next(predicate)
-    }
-
-    #[inline]
-    pub fn find_node<F>(
-        &self,
-        predicate: F,
-    ) -> Option<(
-        DevTreeIndexNode<'_, 'i, 'dt>,
-        DevTreeIndexNodeIter<'_, 'i, 'dt>,
-    )>
-    where
-        F: Fn(&DevTreeIndexNode) -> Result<bool, DevTreeError>,
-    {
-        self.nodes().find_next(predicate)
-    }
-
-    #[inline]
     pub fn find_first_compatible_node(
         &'_ self,
-        string: &str,
+        compat: &str,
     ) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
-        let prop = self.find_prop(move |prop| {
-            Ok(prop.name()? == "compatible" && unsafe { prop.get_str() }? == string)
-        });
-        if let Some(prop) = prop {
-            return Some(prop.0.node());
-        }
-        None
+        self.items().find_next_compatible_node(compat)
     }
 
     pub fn fdt(&self) -> &DevTree<'dt> {

@@ -19,8 +19,7 @@
 // Test the readme if using nightly.
 #![cfg_attr(RUSTC_IS_NIGHTLY, feature(external_doc))]
 #![cfg_attr(not(feature = "std"), no_std)]
-#[cfg(any(feature = "std", feature = "alloc"))]
-extern crate alloc;
+
 #[cfg(feature = "std")]
 extern crate core;
 extern crate endian_type_rs as endian_type;
@@ -30,15 +29,14 @@ extern crate memoffset;
 extern crate static_assertions;
 extern crate unsafe_unwrap;
 
+
 pub mod error;
-
-mod priv_util;
-
 pub mod base;
 pub mod index;
 pub mod prelude;
 pub mod spec;
 pub mod traits;
+pub(crate) mod priv_util;
 
 // When the doctest feature is enabled, add these utility functions.
 #[cfg(feature = "doctest")]
