@@ -94,10 +94,11 @@ impl<'a> DevTree<'a> {
     /// is marked unsafe.
     #[inline]
     pub unsafe fn read_totalsize(buf: &[u8]) -> Result<usize, DevTreeError> {
-        assert!(
-            verify_offset_aligned::<u32>(buf.as_ptr() as usize).is_ok(),
-            "Unaligned buffer provided"
-        );
+        // Verify provided buffer alignment
+        verify_offset_aligned::<u32>(buf.as_ptr() as usize)
+            .map_err(|_| DevTreeError::InvalidParamter("Unaligned buffer provided"))?;
+
+        // Verify provided buffer magic
         Self::verify_magic(buf)?;
         Ok(get_be32_field!(totalsize, fdt_header, buf)? as usize)
     }

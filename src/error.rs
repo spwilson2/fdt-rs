@@ -7,6 +7,8 @@ use core::str::Utf8Error;
 /// An error describe parsing problems when creating device trees.
 #[derive(Debug, Clone, Copy)]
 pub enum DevTreeError {
+    InvalidParamter(&'static str),
+
     /// The magic number FDT_MAGIC was not found at the start of the
     /// structure.
     InvalidMagicNumber,
@@ -27,6 +29,7 @@ pub enum DevTreeError {
 
     /// There wasn't enough memory to create a [`DevTreeIndex`].
     NotEnoughMemory,
+
     Eof,
 }
 
