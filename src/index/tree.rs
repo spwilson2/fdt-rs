@@ -1,10 +1,7 @@
 use core::alloc::Layout;
 use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
-use core::ptr::{null, null_mut};
-use core::str::from_utf8;
-
-use unsafe_unwrap::UnsafeUnwrap;
+use core::ptr::null_mut;
 
 use crate::base::item::DevTreeItem;
 use crate::base::iters::{DevTreeIter, FindNext};
@@ -13,8 +10,8 @@ use crate::base::DevTree;
 use crate::error::DevTreeError;
 use crate::prelude::*;
 //use super::item::DevTreeIndexItem;
+use super::iter::{DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
 use super::{DevTreeIndexItem, DevTreeIndexNode, DevTreeIndexProp};
-use super::iter::{DevTreeIndexNodeIter, DevTreeIndexPropIter, DevTreeIndexIter};
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
     // Make sure we dont' go over the buffer
@@ -81,15 +78,11 @@ impl<'i, 'dt: 'i> DTINode<'i, 'dt> {
     }
 
     pub fn first_child(&self) -> Option<&'i DTINode<'i, 'dt>> {
-        unsafe {
-            self.first_child.as_ref()
-        }
+        unsafe { self.first_child.as_ref() }
     }
 
     pub fn next(&self) -> Option<&'i DTINode<'i, 'dt>> {
-        unsafe {
-            self.next.as_ref()
-        }
+        unsafe { self.next.as_ref() }
     }
 
     pub fn next_sibling(&self) -> Option<&'i DTINode<'i, 'dt>> {
@@ -327,19 +320,14 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     #[inline]
     pub fn root(&self) -> DevTreeIndexNode<'_, 'i, 'dt> {
         // Unsafe OK. The root node always exits.
-        unsafe {
-            DevTreeIndexNode::new(self, &*self.root)
-        }
+        unsafe { DevTreeIndexNode::new(self, &*self.root) }
     }
 
     #[inline]
     pub fn find_item<F>(
         &'_ self,
         predicate: F,
-    ) -> Option<(
-        DevTreeIndexItem<'_, 'i, 'dt>,
-        DevTreeIndexIter<'_, 'i, 'dt>,
-    )>
+    ) -> Option<(DevTreeIndexItem<'_, 'i, 'dt>, DevTreeIndexIter<'_, 'i, 'dt>)>
     where
         F: Fn(&DevTreeIndexItem) -> Result<bool, DevTreeError>,
     {

@@ -1,4 +1,4 @@
-use super::{DevTreeIndexProp, DevTreeIndexNode};
+use super::{DevTreeIndexNode, DevTreeIndexProp};
 
 #[derive(Clone)]
 pub enum DevTreeIndexItem<'a, 'i: 'a, 'dt: 'i> {

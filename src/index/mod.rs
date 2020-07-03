@@ -7,17 +7,21 @@
 //! (Ideally we wouldn't require a full system allocator and could just use a small memory pool
 //! allocator. If anyone knows of such an allocator/interface reach out and we might add this.)
 
-#![allow(dead_code)] // TODO/FIXME
-#![allow(unused_variables)]
-#![allow(unused_imports)]
-
+#[doc(hidden)]
 pub mod item;
 pub mod iter;
+#[doc(hidden)]
 pub mod node;
+#[doc(hidden)]
 pub mod prop;
+#[doc(hidden)]
 pub mod tree;
 
+#[doc(inline)]
 pub use item::DevTreeIndexItem;
+#[doc(inline)]
 pub use node::DevTreeIndexNode;
+#[doc(inline)]
 pub use prop::DevTreeIndexProp;
+#[doc(inline)]
 pub use tree::DevTreeIndex;

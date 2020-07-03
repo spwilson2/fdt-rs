@@ -1,19 +1,8 @@
-use core::alloc::Layout;
-use core::marker::PhantomData;
-use core::mem::{align_of, size_of};
-use core::ptr::{null, null_mut};
 use core::str::from_utf8;
 
-use unsafe_unwrap::UnsafeUnwrap;
-
-use crate::base::item::DevTreeItem;
-use crate::base::iters::{DevTreeIter, FindNext};
-use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTok};
-use crate::base::DevTree;
+use super::iter::{DevTreeIndexIter, DevTreeIndexNodePropIter, DevTreeIndexNodeSiblingIter};
+use super::tree::{DTINode, DevTreeIndex};
 use crate::error::DevTreeError;
-use crate::prelude::*;
-use super::tree::{DevTreeIndex, DTINode, DTIProp};
-use super::iter::{DevTreeIndexIter, DevTreeIndexNodeSiblingIter, DevTreeIndexNodePropIter};
 
 #[derive(Clone)]
 pub struct DevTreeIndexNode<'a, 'i: 'a, 'dt: 'i> {
@@ -35,7 +24,6 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
     }
 
     pub fn props(&self) -> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
-        let node = DevTreeIndexNode::new(self.index, self.node);
         DevTreeIndexNodePropIter::from(DevTreeIndexIter::from_node(self.clone()))
     }
 }

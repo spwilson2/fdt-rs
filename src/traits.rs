@@ -5,6 +5,7 @@ use crate::error::DevTreeError;
 use crate::prelude::*;
 use crate::spec::Phandle;
 
+#[doc(hidden)]
 pub trait DevTreePropStateBase<'r, 'dt: 'r> {
     fn propbuf(&'r self) -> &'dt [u8];
     fn nameoff(&'r self) -> usize;
@@ -160,7 +161,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
 struct PropTraitWrap<'r, T: ?Sized>(&'r T);
 
 impl<'r, 'dt: 'r, T: DevTreePropState<'r, 'dt> + ?Sized> PropTraitWrap<'r, T> {
-    pub(self) fn get_prop_str(&self) -> Result<&'dt str, DevTreeError> {
+    fn get_prop_str(&self) -> Result<&'dt str, DevTreeError> {
         unsafe {
             let str_offset = self.0.fdt().off_dt_strings() + self.0.nameoff();
             let name = self.0.fdt().buf().read_bstring0(str_offset)?;
@@ -171,7 +172,7 @@ impl<'r, 'dt: 'r, T: DevTreePropState<'r, 'dt> + ?Sized> PropTraitWrap<'r, T> {
     /// # Safety
     ///
     /// See the safety note of [`DevTreeProp::get_u32`]
-    pub(self) unsafe fn get_string(
+    unsafe fn get_string(
         &self,
         offset: usize,
         parse: bool,
@@ -197,7 +198,7 @@ impl<'r, 'dt: 'r, T: DevTreePropState<'r, 'dt> + ?Sized> PropTraitWrap<'r, T> {
     /// # Safety
     ///
     /// See the safety note of [`DevTreeProp::get_u32`]
-    pub(self) unsafe fn iter_str_list(
+    unsafe fn iter_str_list(
         &self,
         mut list_opt: Option<&mut [Option<&'dt str>]>,
     ) -> Result<usize, DevTreeError> {
