@@ -6,7 +6,7 @@ use num_derive::FromPrimitive;
 pub const FDT_MAGIC: u32 = 0xd00d_feed;
 pub const MAX_NODE_NAME_LEN: usize = 31;
 
-/// Definition of the parsed phandle (a native machine number)
+/// Definition of the parsed phandle as a native machine number
 pub type Phandle = u32;
 
 /// An enumeration of the tokens used to separate sections within the `dt_struct` section of the FDT.

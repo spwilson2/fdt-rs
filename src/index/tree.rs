@@ -1,0 +1,384 @@
+use core::alloc::Layout;
+use core::marker::PhantomData;
+use core::mem::{align_of, size_of};
+use core::ptr::{null, null_mut};
+use core::str::from_utf8;
+
+use unsafe_unwrap::UnsafeUnwrap;
+
+use crate::base::item::DevTreeItem;
+use crate::base::iters::{DevTreeIter, FindNext};
+use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTok};
+use crate::base::DevTree;
+use crate::error::DevTreeError;
+use crate::prelude::*;
+//use super::item::DevTreeIndexItem;
+use super::{DevTreeIndexItem, DevTreeIndexNode, DevTreeIndexProp};
+use super::iter::{DevTreeIndexNodeIter, DevTreeIndexPropIter, DevTreeIndexItemIter, DevTreeIndexNodeSiblingIter, DevTreeIndexNodePropIter};
+
+unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
+    // Make sure we dont' go over the buffer
+    let mut res = buf.as_ptr() as usize + buf.len() > (ptr as usize + size_of::<T>());
+    // Make sure we don't go under the buffer
+    res &= buf.as_ptr() as usize <= ptr as usize;
+    return res;
+}
+
+unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> Result<*mut T, DevTreeError> {
+    let ptr = buf.as_ptr().add(offset);
+
+    let ptr = ptr.add(ptr.align_offset(align_of::<T>())) as *mut T;
+    if !ptr_in(buf, ptr) {
+        return Err(DevTreeError::NotEnoughMemory);
+    }
+    Ok(ptr)
+}
+
+pub(super) struct DTIProp<'dt> {
+    pub propbuf: &'dt [u8],
+    pub nameoff: usize,
+}
+
+#[derive(Debug)]
+pub struct DevTreeIndex<'i, 'dt: 'i> {
+    fdt: DevTree<'dt>,
+    pub(super) root: *const DTINode<'i, 'dt>,
+}
+
+struct DTIBuilder<'i, 'dt: 'i> {
+    buf: &'i mut [u8],
+    cur_node: *mut DTINode<'i, 'dt>,
+    prev_new_node: *mut DTINode<'i, 'dt>,
+    front_off: usize,
+
+    /// Devtree Props may only occur before child nodes.
+    /// We'll call this the "node_header".
+    in_node_header: bool,
+}
+
+pub(super) struct DTINode<'i, 'dt: 'i> {
+    parent: *const Self,
+    first_child: *const Self,
+    /// `next` is either
+    /// 1. the next sibling node
+    /// 2. the next node in DFS (some higher up node)
+    /// It is 1 if (*next).parent == self.parent, otherwise it is 2.
+    next: *const Self,
+    pub(super) name: &'dt [u8],
+
+    //NOTE: We store props like C arrays.
+    // This the number of props after this node in memory.
+    // Props are a packed array after each node.
+    pub(super) num_props: usize,
+    _index: PhantomData<&'i u8>,
+}
+
+impl<'i, 'dt: 'i> DTINode<'i, 'dt> {
+    pub unsafe fn prop_unchecked(&self, idx: usize) -> &'i DTIProp<'dt> {
+        // Get the pointer to the props after ourself.
+        let prop_ptr = (self as *const Self).add(1) as *const DTIProp;
+        return &*prop_ptr.add(idx);
+    }
+
+    pub fn first_child(&self) -> Option<&'i DTINode<'i, 'dt>> {
+        unsafe {
+            self.first_child.as_ref()
+        }
+    }
+
+    pub fn next(&self) -> Option<&'i DTINode<'i, 'dt>> {
+        unsafe {
+            self.next.as_ref()
+        }
+    }
+
+    pub fn next_sibling(&self) -> Option<&'i DTINode<'i, 'dt>> {
+        unsafe {
+            if let Some(next) = self.next.as_ref() {
+                if next.parent == self.parent {
+                    return Some(next);
+                }
+            }
+        }
+        None
+    }
+}
+
+impl<'i, 'dt: 'i> DTIBuilder<'i, 'dt> {
+    fn allocate_aligned_ptr<T>(&mut self) -> Result<*mut T, DevTreeError> {
+        unsafe {
+            let ptr = aligned_ptr_in::<T>(self.buf, self.front_off)?;
+            self.front_off = ptr.add(1) as usize - self.buf.as_ptr() as usize;
+            Ok(ptr)
+        }
+    }
+
+    pub fn parsed_node(&mut self, node: &ParsedBeginNode<'dt>) -> Result<(), DevTreeError> {
+        unsafe {
+            self.in_node_header = true;
+
+            let new_ptr = self.allocate_aligned_ptr::<DTINode>()?;
+            let parent = self.cur_node;
+
+            // Write the data
+            *new_ptr = DTINode {
+                parent,
+
+                // set by the next node we create
+                first_child: null_mut(),
+                // set by the next node we create
+                next: null_mut(),
+
+                name: node.name,
+                num_props: 0,
+                _index: PhantomData,
+            };
+
+            if !parent.is_null() {
+                debug_assert!(
+                    self.prev_new_node != null_mut(),
+                    "cur_node should not have been initialized without also intializing \
+                    prev_new_node"
+                );
+
+                (*self.prev_new_node).next = new_ptr;
+                if !(*parent).next.is_null() {
+                    let prev_sibling = (*parent).next as *mut DTINode;
+                    (*prev_sibling).next = new_ptr;
+                }
+                (*parent).next = new_ptr;
+
+                // If this new node is the first node that follows the current one, it is the current's
+                // first child.
+                if (*parent).first_child.is_null() {
+                    (*parent).first_child = new_ptr;
+                }
+            }
+
+            // Save the new node ptr.
+            self.cur_node = new_ptr;
+            self.prev_new_node = new_ptr;
+        }
+
+        Ok(())
+    }
+
+    pub fn parsed_prop(&mut self, prop: &ParsedProp<'dt>) -> Result<(), DevTreeError> {
+        if !self.in_node_header {
+            return Err(DevTreeError::ParseError);
+        }
+
+        unsafe {
+            let new_ptr = self.allocate_aligned_ptr::<DTIProp>()?;
+            (*self.cur_node).num_props += 1;
+            *new_ptr = DTIProp::from(prop);
+        }
+
+        Ok(())
+    }
+
+    pub fn parsed_end_node(&mut self) -> Result<(), DevTreeError> {
+        // There were more EndNode tokens than BeginNode ones.
+        if self.cur_node.is_null() {
+            return Err(DevTreeError::ParseError);
+        }
+        // Unsafe is Ok.
+        // Lifetime : self.cur_node is a pointer into a buffer with the same lifetime as self
+        // Alignment: parsed_node verifies alignment when creating self.cur_node
+        // NonNull  : We check that self.cur_node is non-null above
+        // Mutability: We cast from a *const to a *mut.
+        //             We're the only thread which has access to the buffer at this time, so this
+        //             is thread-safe.
+        unsafe {
+            // Change the current node back to the parent.
+            self.cur_node = (*self.cur_node).parent as *mut DTINode;
+        }
+
+        // We are no longer in a node header.
+        // We are either going to see a new node next or parse another end_node.
+        self.in_node_header = false;
+
+        Ok(())
+    }
+}
+
+impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
+    // Note: Our parsing method is unsafe - particularly due to its use of pointer arithmetic.
+    //
+    // We decide this is worth it for the following reasons:
+    // - It requires no allocator.
+    // - It has incredibly low overhead.
+    //   - This parsing method only requires a single allocation. (The buffer given as buf)
+    //   - This parsing method only requires a single iteration over the FDT.
+    // - It is very easy to test in isolation; parsing is entirely enclosed to this module.
+    unsafe fn init_builder<'a>(
+        buf: &'i mut [u8],
+        iter: &mut DevTreeParseIter<'a, 'dt>,
+    ) -> Result<DTIBuilder<'i, 'dt>, DevTreeError> {
+        let mut builder = DTIBuilder {
+            front_off: 0,
+            buf,
+            cur_node: null_mut(),
+            prev_new_node: null_mut(),
+            in_node_header: false,
+        };
+
+        for tok in iter {
+            match tok {
+                ParsedTok::BeginNode(node) => {
+                    builder.parsed_node(&node)?;
+                    return Ok(builder);
+                }
+                ParsedTok::Nop => continue,
+                _ => return Err(DevTreeError::ParseError),
+            }
+        }
+
+        Err(DevTreeError::ParseError)
+    }
+
+    pub fn get_layout(fdt: &'i DevTree<'dt>) -> Result<Layout, DevTreeError> {
+        // Size may require alignment of DTINode.
+        let mut size = 0usize;
+
+        // We assert this because it makes size calculations easier.
+        // We don't have to worry about re-aligning between props and nodes.
+        // If they didn't have the same alignment, we would have to keep track
+        // of the last node and re-align depending on the last seen type.
+        //
+        // E.g. If we saw one node, two props, and then two nodes:
+        //
+        // size = \
+        // align_of::<DTINode> + size_of::<DTINode>
+        // + align_of::<DTIProp> + size_of::<DTIProp>
+        // + size_of::<DTIProp>
+        // + size_of::<DTIProp>
+        // + align_of::<DTINode> + size_of::<DTINode>
+        // + size_of::<DTINode>
+        const_assert_eq!(align_of::<DTINode>(), align_of::<DTIProp>());
+
+        for item in DevTreeIter::new(fdt) {
+            match item {
+                DevTreeItem::Node(_) => size += size_of::<DTINode>(),
+                DevTreeItem::Prop(_) => size += size_of::<DTIProp>(),
+            }
+        }
+
+        // Unsafe okay.
+        // - Size is not likely to be usize::MAX. (There's no way we find that many nodes.)
+        // - Align is a result of align_of, so it will be a non-zero power of two
+        unsafe {
+            return Ok(Layout::from_size_align_unchecked(
+                size,
+                align_of::<DTINode>(),
+            ));
+        }
+    }
+
+    pub fn new(fdt: DevTree<'dt>, buf: &'i mut [u8]) -> Result<Self, DevTreeError> {
+        let mut iter = DevTreeParseIter::new(&fdt);
+
+        let mut builder = unsafe { Self::init_builder(buf, &mut iter) }?;
+
+        let this = Self {
+            fdt,
+            root: builder.cur_node,
+        };
+
+        // The buffer will be split into two parts, front and back:
+        //
+        // Front will be used as a temporary work section to  build the nodes as we parse them.
+        // The back will be used to save completely parsed nodes.
+        for tok in iter {
+            match tok {
+                ParsedTok::BeginNode(node) => {
+                    builder.parsed_node(&node)?;
+                }
+                ParsedTok::Prop(prop) => {
+                    builder.parsed_prop(&prop)?;
+                }
+                ParsedTok::EndNode => {
+                    builder.parsed_end_node()?;
+                }
+                ParsedTok::Nop => continue,
+            }
+        }
+
+        Ok(this)
+    }
+
+    pub fn nodes(&self) -> DevTreeIndexNodeIter<'_, 'i, 'dt> {
+        DevTreeIndexNodeIter::new(self)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn items(&self) -> DevTreeIndexItemIter {
+        DevTreeIndexItemIter::new(self)
+    }
+
+    #[inline]
+    pub fn root(&self) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
+        self.nodes().next()
+    }
+
+    #[inline]
+    pub fn find_item<F>(
+        &'_ self,
+        predicate: F,
+    ) -> Option<(
+        DevTreeIndexItem<'_, 'i, 'dt>,
+        DevTreeIndexItemIter<'_, 'i, 'dt>,
+    )>
+    where
+        F: Fn(&DevTreeIndexItem) -> Result<bool, DevTreeError>,
+    {
+        DevTreeIndexItemIter::new(self).find_next(predicate)
+    }
+
+    #[inline]
+    pub fn find_prop<F>(
+        &self,
+        predicate: F,
+    ) -> Option<(
+        DevTreeIndexProp<'_, 'i, 'dt>,
+        DevTreeIndexPropIter<'_, 'i, 'dt>,
+    )>
+    where
+        F: Fn(&DevTreeIndexProp) -> Result<bool, DevTreeError>,
+    {
+        DevTreeIndexPropIter::new(self).find_next(predicate)
+    }
+
+    #[inline]
+    pub fn find_node<F>(
+        &self,
+        predicate: F,
+    ) -> Option<(
+        DevTreeIndexNode<'_, 'i, 'dt>,
+        DevTreeIndexNodeIter<'_, 'i, 'dt>,
+    )>
+    where
+        F: Fn(&DevTreeIndexNode) -> Result<bool, DevTreeError>,
+    {
+        DevTreeIndexNodeIter::new(self).find_next(predicate)
+    }
+
+    #[inline]
+    pub fn find_first_compatible_node(
+        &'_ self,
+        string: &str,
+    ) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
+        let prop = self.find_prop(move |prop| {
+            Ok(prop.name()? == "compatible" && unsafe { prop.get_str() }? == string)
+        });
+        if let Some(prop) = prop {
+            return Some(prop.0.node());
+        }
+        None
+    }
+
+    pub fn fdt(&self) -> &DevTree<'dt> {
+        &self.fdt
+    }
+}

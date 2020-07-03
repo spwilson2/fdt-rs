@@ -1,8 +1,9 @@
 extern crate fdt_rs;
 
 use core::mem::size_of;
-use fdt_rs::fdt_util::props::DevTreePropState;
-use fdt_rs::DevTree;
+
+use fdt_rs::prelude::*;
+use fdt_rs::base::DevTree;
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
@@ -204,7 +205,7 @@ pub mod alloc_tests {
     #[test]
     fn root_prop_iteration() {
         let idx = get_fdt_index().index;
-        let root_props = &["#address-cells", "#size-cells",  "compatible", "model"];
+        let root_props = &["#address-cells", "#size-cells", "compatible", "model"];
 
         let iter = idx.root().unwrap().props();
         for (node, expected) in iter.clone().zip(root_props) {

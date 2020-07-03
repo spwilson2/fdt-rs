@@ -2,15 +2,13 @@
 //! a [`DevTree`].
 use core::mem::size_of;
 use core::num::NonZeroUsize;
+use core::str::from_utf8;
 
-use num_traits::FromPrimitive;
-
-use super::buf_util::SliceRead;
-use super::spec;
-use super::spec::{fdt_prop_header, fdt_reserve_entry, FdtTok};
-use super::{DevTree, DevTreeError, DevTreeItem, DevTreeNode, DevTreeProp};
-use crate::bytes_as_str;
-use crate::fdt_util::props::DevTreePropState;
+use crate::base::parse::{next_devtree_token, ParsedTok};
+use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
+use crate::error::DevTreeError;
+use crate::prelude::*;
+use crate::spec::fdt_reserve_entry;
 
 pub trait FindNext: Iterator + core::clone::Clone {
     #[inline]
@@ -18,7 +16,7 @@ pub trait FindNext: Iterator + core::clone::Clone {
     where
         F: Fn(&Self::Item) -> Result<bool, DevTreeError>,
         <Self as Iterator>::Item: core::marker::Sized,
-        Self: core::marker::Sized
+        Self: core::marker::Sized,
     {
         while let Some(i) = self.next() {
             if let Ok(true) = predicate(&i) {
@@ -29,6 +27,7 @@ pub trait FindNext: Iterator + core::clone::Clone {
     }
 }
 
+/// An iterator over [`fdt_reserve_entry`] objects within the FDT.
 #[derive(Clone)]
 pub struct DevTreeReserveEntryIter<'a> {
     offset: usize,
@@ -88,7 +87,6 @@ pub struct DevTreeIter<'a> {
     /// Current offset into the flattened dt_struct section of the device tree.
     offset: usize,
     pub(crate) fdt: &'a DevTree<'a>,
-
     //parse_error: Option<>
 }
 
@@ -114,6 +112,7 @@ impl<'a> DevTreeIter<'a> {
     }
 
     /// Returns the next [`DevTreeNode`] found in the Device Tree
+    #[inline]
     pub fn next_node(&mut self) -> Option<DevTreeNode<'a>> {
         loop {
             match self.next() {
@@ -128,6 +127,7 @@ impl<'a> DevTreeIter<'a> {
 
     /// Returns the next [`DevTreeProp`] found in the Device Tree (regardless if it occurs on
     /// a different [`DevTreeNode`]
+    #[inline]
     pub fn next_prop(&mut self) -> Option<DevTreeProp<'a>> {
         loop {
             match self.next() {
@@ -140,6 +140,7 @@ impl<'a> DevTreeIter<'a> {
     }
 
     /// Returns the next [`DevTreeProp`] on the current node within in the Device Tree
+    #[inline]
     pub fn next_node_prop(&mut self) -> Option<DevTreeProp<'a>> {
         match self.next() {
             Some(DevTreeItem::Prop(p)) => Some(p),
@@ -151,7 +152,7 @@ impl<'a> DevTreeIter<'a> {
     /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
     #[inline]
-    pub fn find_next_compatible_node(&self, string: &crate::Str) -> Option<DevTreeNode<'a>> {
+    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a>> {
         // Create a clone and turn it into a node iterator
         let mut iter = DevTreeNodeIter::from(self.clone());
         // If there is another node
@@ -171,14 +172,14 @@ impl<'a> DevTreeIter<'a> {
         loop {
             let old_offset = self.offset;
             // Safe because we only pass offsets which are returned by next_devtree_token.
-            let res = unsafe { next_devtree_token(self.fdt.buf, &mut self.offset) };
+            let res = unsafe { next_devtree_token(self.fdt.buf(), &mut self.offset) };
             match res {
                 Ok(Some(ParsedTok::BeginNode(node))) => {
                     self.current_prop_parent_off =
                         unsafe { Some(NonZeroUsize::new_unchecked(old_offset)) };
                     return Some(DevTreeItem::Node(DevTreeNode {
                         parse_iter: self.clone(),
-                        name: bytes_as_str(node.name).map_err(|e| e.into()),
+                        name: from_utf8(node.name).map_err(|e| e.into()),
                     }));
                 }
                 Ok(Some(ParsedTok::Prop(prop))) => {
@@ -187,11 +188,11 @@ impl<'a> DevTreeIter<'a> {
                         Some(n) => n,
                         None => return None, // Devtree error - end iteration
                     };
-                    return Some(DevTreeItem::Prop(DevTreeProp {
-                        parent_iter: prev_node,
-                        propbuf: prop.prop_buf,
-                        nameoff: prop.name_offset,
-                    }));
+                    return Some(DevTreeItem::Prop(DevTreeProp::new(
+                        prev_node,
+                        prop.prop_buf,
+                        prop.name_offset,
+                    )));
                 }
                 Ok(Some(ParsedTok::EndNode)) => {
                     // The current node has ended.
@@ -214,7 +215,7 @@ impl<'a> Iterator for DevTreeIter<'a> {
     }
 }
 
-/// An interator over [`DevTreeNode`] objects in the [`DevTree`]
+/// An iterator over [`DevTreeNode`] objects in the [`DevTree`]
 #[derive(Clone)]
 pub struct DevTreeNodeIter<'a>(DevTreeIter<'a>);
 
@@ -238,7 +239,7 @@ impl<'a> From<DevTreeIter<'a>> for DevTreeNodeIter<'a> {
     }
 }
 
-/// An interator over [`DevTreeProp`] objects in the [`DevTree`]
+/// An iterator over [`DevTreeProp`] objects in the [`DevTree`]
 #[derive(Clone)]
 pub struct DevTreePropIter<'a>(DevTreeIter<'a>);
 
@@ -262,7 +263,7 @@ impl<'a> From<DevTreeIter<'a>> for DevTreePropIter<'a> {
     }
 }
 
-/// An interator over [`DevTreeProp`] objects on a single node within the [`DevTree`]
+/// An iterator over [`DevTreeProp`] objects on a single node within the [`DevTree`]
 #[derive(Clone)]
 pub struct DevTreeNodePropIter<'a>(DevTreeIter<'a>);
 
@@ -283,109 +284,5 @@ impl<'a> Iterator for DevTreeNodePropIter<'a> {
 impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
     fn from(iter: DevTreeIter<'a>) -> Self {
         Self(iter)
-    }
-}
-
-pub(crate) struct DevTreeParseIter<'r, 'dt: 'r> {
-    offset: usize,
-    fdt: &'r DevTree<'dt>,
-}
-
-impl<'r, 'dt:'r> DevTreeParseIter<'r, 'dt> {
-    pub(crate) fn new(fdt: &'r DevTree<'dt>) -> Self {
-        Self {
-            offset: fdt.off_dt_struct(),
-            fdt,
-        }
-    }
-}
-
-impl<'dt, 'a:'dt> Iterator for DevTreeParseIter<'dt, 'a> {
-    type Item = ParsedTok<'a>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        // Safe because we're passing an unmodified (by us) offset.
-        // next_devtree_token guaruntees alignment and out-of-bounds won't occur.
-        match unsafe {next_devtree_token(self.fdt.buf, &mut self.offset) } {
-            Ok(tok) => tok,
-            _ => None,
-        }
-    }
-}
-
-pub(crate) struct ParsedBeginNode<'a> {
-    pub(crate) name: &'a [u8],
-}
-
-pub(crate) struct ParsedProp<'a> {
-    pub(crate) prop_buf: &'a [u8],
-    pub(crate) name_offset: usize,
-}
-
-pub(crate) enum ParsedTok<'a> {
-    BeginNode(ParsedBeginNode<'a>),
-    EndNode,
-    Prop(ParsedProp<'a>),
-    Nop,
-}
-
-unsafe fn next_devtree_token<'a>(
-    buf: &'a [u8],
-    off: &mut usize,
-) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
-    // These are guarunteed.
-    // We only produce associated offsets that are aligned to 32 bits and within the buffer.
-    assert!(buf.as_ptr().add(*off) as usize % size_of::<u32>() == 0);
-    assert!(buf.len() > (*off + size_of::<u32>()));
-
-    let fdt_tok_val = buf.unsafe_read_be_u32(*off)?;
-    *off += size_of::<u32>();
-
-    match FromPrimitive::from_u32(fdt_tok_val) {
-        Some(FdtTok::BeginNode) => {
-            // Read the name (or return an error if the device tree is incorrectly formatted).
-            let name = buf.nread_bstring0(*off, spec::MAX_NODE_NAME_LEN - 1)?;
-
-            // Move to the end of name (adding null byte).
-            *off += name.len() + 1;
-            // Per spec - align back to u32.
-            *off += buf.as_ptr().add(*off).align_offset(size_of::<u32>());
-
-            Ok(Some(ParsedTok::BeginNode(ParsedBeginNode { name })))
-        }
-        Some(FdtTok::Prop) => {
-            // Re-interpret the data as a fdt_header
-            let header = core::mem::transmute::<&u8, &fdt_prop_header>(&buf[*off]);
-            // Get length from header
-            let prop_len = u32::from((*header).len) as usize;
-
-            // Move past the header to the data;
-            *off += size_of::<fdt_prop_header>();
-            // Create a slice using the offset
-            let prop_buf = &buf[*off..*off + prop_len];
-            // Move the offset past the prop data.
-            *off += prop_buf.len();
-            // Align back to u32.
-            *off += buf.as_ptr().add(*off).align_offset(size_of::<u32>());
-
-            let name_offset = u32::from(header.nameoff) as usize;
-            if name_offset > buf.len() {
-                return Err(DevTreeError::ParseError);
-            }
-            let name_offset = name_offset;
-
-            Ok(Some(ParsedTok::Prop(ParsedProp {
-                name_offset,
-                prop_buf,
-            })))
-        }
-        Some(FdtTok::EndNode) => Ok(Some(ParsedTok::EndNode)),
-        Some(FdtTok::Nop) => Ok(Some(ParsedTok::Nop)),
-        Some(FdtTok::End) => Ok(None),
-        None => {
-            // Invalid token
-            Err(DevTreeError::ParseError)
-        }
     }
 }
