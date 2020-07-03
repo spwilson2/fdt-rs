@@ -31,10 +31,11 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
     }
 
     pub fn siblings(&self) -> DevTreeIndexNodeSiblingIter<'_, 'i, 'dt> {
-        DevTreeIndexNodeSiblingIter::new(self)
+        DevTreeIndexNodeSiblingIter::from_node(self.clone())
     }
 
     pub fn props(&self) -> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
-        DevTreeIndexNodePropIter::new(self.index, self.node)
+        let node = DevTreeIndexNode::new(self.index, self.node);
+        DevTreeIndexNodePropIter::from_node(node)
     }
 }

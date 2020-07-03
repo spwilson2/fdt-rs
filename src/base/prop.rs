@@ -32,7 +32,7 @@ impl<'a> DevTreeProp<'a> {
     /// Returns the node which this property is attached to
     #[inline]
     #[must_use]
-    pub fn parent(&self) -> DevTreeNode<'a> {
+    pub fn node(&self) -> DevTreeNode<'a> {
         self.parent_iter.clone().next_node().unwrap()
     }
 

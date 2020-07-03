@@ -162,7 +162,7 @@ impl<'a> DevTreeIter<'a> {
             if let Some((compatible_prop, _)) = iter.find_next(|prop| unsafe {
                 Ok((prop.name()? == "compatible") && (prop.get_str()? == string))
             }) {
-                return Some(compatible_prop.parent());
+                return Some(compatible_prop.node());
             }
         }
         None

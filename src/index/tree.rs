@@ -14,7 +14,7 @@ use crate::error::DevTreeError;
 use crate::prelude::*;
 //use super::item::DevTreeIndexItem;
 use super::{DevTreeIndexItem, DevTreeIndexNode, DevTreeIndexProp};
-use super::iter::{DevTreeIndexNodeIter, DevTreeIndexPropIter, DevTreeIndexItemIter, DevTreeIndexNodeSiblingIter, DevTreeIndexNodePropIter};
+use super::iter::{DevTreeIndexNodeIter, DevTreeIndexPropIter, DevTreeIndexIter};
 
 unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
     // Make sure we dont' go over the buffer
@@ -42,7 +42,7 @@ pub(super) struct DTIProp<'dt> {
 #[derive(Debug)]
 pub struct DevTreeIndex<'i, 'dt: 'i> {
     fdt: DevTree<'dt>,
-    pub(super) root: *const DTINode<'i, 'dt>,
+    root: *const DTINode<'i, 'dt>,
 }
 
 struct DTIBuilder<'i, 'dt: 'i> {
@@ -285,6 +285,9 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
             root: builder.cur_node,
         };
 
+        // The builder should have setup a root node or returned an Err.
+        debug_assert!(!this.root.is_null());
+
         // The buffer will be split into two parts, front and back:
         //
         // Front will be used as a temporary work section to  build the nodes as we parse them.
@@ -308,18 +311,25 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     }
 
     pub fn nodes(&self) -> DevTreeIndexNodeIter<'_, 'i, 'dt> {
-        DevTreeIndexNodeIter::new(self)
+        DevTreeIndexNodeIter::from(self.items())
+    }
+
+    pub fn props(&self) -> DevTreeIndexPropIter<'_, 'i, 'dt> {
+        DevTreeIndexPropIter::from(self.items())
     }
 
     #[inline]
     #[must_use]
-    pub fn items(&self) -> DevTreeIndexItemIter {
-        DevTreeIndexItemIter::new(self)
+    pub fn items(&self) -> DevTreeIndexIter<'_, 'i, 'dt> {
+        DevTreeIndexIter::new(self)
     }
 
     #[inline]
-    pub fn root(&self) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
-        self.nodes().next()
+    pub fn root(&self) -> DevTreeIndexNode<'_, 'i, 'dt> {
+        // Unsafe OK. The root node always exits.
+        unsafe {
+            DevTreeIndexNode::new(self, &*self.root)
+        }
     }
 
     #[inline]
@@ -328,12 +338,12 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         predicate: F,
     ) -> Option<(
         DevTreeIndexItem<'_, 'i, 'dt>,
-        DevTreeIndexItemIter<'_, 'i, 'dt>,
+        DevTreeIndexIter<'_, 'i, 'dt>,
     )>
     where
         F: Fn(&DevTreeIndexItem) -> Result<bool, DevTreeError>,
     {
-        DevTreeIndexItemIter::new(self).find_next(predicate)
+        self.items().find_next(predicate)
     }
 
     #[inline]
@@ -347,7 +357,7 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     where
         F: Fn(&DevTreeIndexProp) -> Result<bool, DevTreeError>,
     {
-        DevTreeIndexPropIter::new(self).find_next(predicate)
+        self.props().find_next(predicate)
     }
 
     #[inline]
@@ -361,7 +371,7 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     where
         F: Fn(&DevTreeIndexNode) -> Result<bool, DevTreeError>,
     {
-        DevTreeIndexNodeIter::new(self).find_next(predicate)
+        self.nodes().find_next(predicate)
     }
 
     #[inline]

@@ -6,7 +6,6 @@ use core::str::from_utf8;
 
 use unsafe_unwrap::UnsafeUnwrap;
 
-use crate::base::item::DevTreeItem;
 use crate::base::iters::{DevTreeIter, FindNext};
 use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTok};
 use crate::base::DevTree;
@@ -21,21 +20,11 @@ use super::tree::{DTIProp, DTINode};
 /***********************************/
 
 #[derive(Clone)]
-pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i> {
-    pub index: &'a DevTreeIndex<'i, 'dt>,
-    node: Option<&'a DTINode<'i, 'dt>>,
-}
+pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexIter<'a, 'i, 'dt>);
 
-impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodeIter<'a, 'i, 'dt> {
-    pub(super) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
-        unsafe {
-            let root_ref = index.root.as_ref().unsafe_unwrap();
-
-            Self {
-                index,
-                node: Some(root_ref),
-            }
-        }
+impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>> for DevTreeIndexNodeIter<'a, 'i, 'dt> {
+    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
+        Self(iter)
     }
 }
 
@@ -44,22 +33,7 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(node) = self.node {
-            let cur = DevTreeIndexNode {
-                index: self.index,
-                node,
-            };
-            self.node = if let Some(next) = node.first_child() {
-                Some(next)
-            } else if let Some(next) = node.next() {
-                Some(next)
-            } else {
-                None
-            };
-
-            return Some(cur);
-        }
-        None
+        self.0.next_node()
     }
 }
 
@@ -68,17 +42,17 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
 /***********************************/
 
 #[derive(Clone)]
-pub struct DevTreeIndexNodeSiblingIter<'a, 'i: 'a, 'dt: 'i> {
-    pub index: &'a DevTreeIndex<'i, 'dt>,
-    node: Option<&'a DTINode<'i, 'dt>>,
-}
+pub struct DevTreeIndexNodeSiblingIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexIter<'a, 'i, 'dt>);
 
 impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
-    pub(super) fn new(node: &'a DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
-        Self {
-            index: &node.index,
-            node: Some(node.node),
-        }
+    pub(super) fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
+        Self(DevTreeIndexIter::from_node(node))
+    }
+}
+
+impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>> for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
+    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
+        Self(iter)
     }
 }
 
@@ -87,12 +61,7 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> 
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(node) = self.node {
-            let cur = DevTreeIndexNode::new(self.index, node);
-            self.node = node.next_sibling();
-            return Some(cur);
-        }
-        None
+        self.0.next_sibling()
     }
 }
 
@@ -101,19 +70,17 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> 
 /***********************************/
 
 #[derive(Clone)]
-pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i> {
-    pub index: &'a DevTreeIndex<'i, 'dt>,
-    node: &'a DTINode<'i, 'dt>,
-    prop_idx: usize,
-}
+pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexIter<'a, 'i, 'dt>);
 
 impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
-    pub(super) fn new(index: &'a DevTreeIndex<'i, 'dt>, node: &'a DTINode<'i, 'dt>) -> Self {
-        Self {
-            index,
-            node,
-            prop_idx: 0,
-        }
+    pub(super) fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
+        Self(DevTreeIndexIter::from_node(node))
+    }
+}
+
+impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>> for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
+    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
+        Self(iter)
     }
 }
 
@@ -122,12 +89,11 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.prop_idx < self.node.num_props {
-            // Unsafe OK, we just checked the length of props.
-            let prop = unsafe { self.node.prop_unchecked(self.prop_idx) };
-
-            self.prop_idx += 1;
-            return Some(DevTreeIndexProp::new(self.index, self.node, prop));
+        for item in &mut self.0 {
+            match item {
+                DevTreeIndexItem::Node(_) => break,
+                DevTreeIndexItem::Prop(p) => return Some(p),
+            }
         }
         None
     }
@@ -138,10 +104,16 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
 /***********************************/
 
 #[derive(Clone)]
-pub struct DevTreeIndexPropIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexItemIter<'a, 'i, 'dt>);
+pub struct DevTreeIndexPropIter<'a, 'i: 'a, 'dt: 'i> (DevTreeIndexIter<'a, 'i, 'dt>);
 impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexPropIter<'a, 'i, 'dt> {
     pub(super) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
-        Self(DevTreeIndexItemIter::new(index))
+        Self(DevTreeIndexIter::new(index))
+    }
+}
+
+impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>> for DevTreeIndexPropIter<'a, 'i, 'dt> {
+    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
+        Self(iter)
     }
 }
 
@@ -150,13 +122,7 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for item in &mut self.0 {
-            match item {
-                DevTreeIndexItem::Node(_) => continue,
-                DevTreeIndexItem::Prop(p) => return Some(p),
-            }
-        }
-        None
+        self.0.next_prop()
     }
 }
 
@@ -165,51 +131,133 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
 /***********************************/
 
 #[derive(Clone)]
-pub struct DevTreeIndexItemIter<'a, 'i: 'a, 'dt: 'i> {
+pub struct DevTreeIndexIter<'a, 'i: 'a, 'dt: 'i> {
     pub index: &'a DevTreeIndex<'i, 'dt>,
-    node_iter: DevTreeIndexNodeIter<'a, 'i, 'dt>,
-    prop_iter: Option<DevTreeIndexNodePropIter<'a, 'i, 'dt>>,
+    node: Option<&'a DTINode<'i, 'dt>>,
+    prop_idx: usize,
+    initial_node_returned: bool,
 }
-impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexItemIter<'a, 'i, 'dt> {
+
+impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
+    #[inline]
     pub(super) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
-        Self {
-            index,
-            node_iter: index.nodes(),
-            prop_iter: None,
+        let mut this = Self::from_node(index.root());
+        this.initial_node_returned = false;
+        this
+    }
+
+    #[inline]
+    pub fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
+            Self {
+                index: node.index,
+                initial_node_returned: true,
+                node: Some(node.node),
+                prop_idx: 0,
+            }
+    }
+
+    fn current_node_itr(&self) -> Option<Self> {
+        if self.node.is_some() {
+            return Some(self.clone())
         }
+        None
+    }
+
+    #[inline]
+    pub fn next_node(&mut self) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
+        loop {
+            match self.next() {
+                Some(DevTreeIndexItem::Node(n)) => return Some(n),
+                Some(_) => {
+                    continue;
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    #[inline]
+    pub fn next_prop(&mut self) -> Option<DevTreeIndexProp<'a, 'i, 'dt>> {
+        loop {
+            match self.next() {
+                Some(DevTreeIndexItem::Prop(p)) => return Some(p),
+                Some(DevTreeIndexItem::Node(_)) => continue,
+                _ => return None,
+            }
+        }
+    }
+
+    #[inline]
+    pub fn next_node_prop(&mut self) -> Option<DevTreeIndexProp<'a, 'i, 'dt>> {
+        match self.next() {
+            Some(DevTreeIndexItem::Prop(p)) => Some(p),
+            // Return if a new node or an EOF.
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
+        // Create a clone and turn it into a node iterator
+        let mut iter = DevTreeIndexNodeIter::from(self.clone());
+        // If there is another node
+        if iter.next().is_some() {
+            // Iterate through its properties looking for the compatible string.
+            let mut iter = DevTreeIndexPropIter::from(iter.0);
+            if let Some((compatible_prop, _)) = iter.find_next(|prop| unsafe {
+                Ok((prop.name()? == "compatible") && (prop.get_str()? == string))
+            }) {
+                return Some(compatible_prop.node());
+            }
+        }
+        None
+    }
+
+    #[inline]
+    pub fn next_sibling(&mut self) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
+        if let Some(node) = self.node {
+            let cur = DevTreeIndexNode::new(self.index, node);
+            self.node = node.next_sibling();
+            return Some(cur);
+        }
+        None
     }
 }
 
-impl FindNext for DevTreeIndexItemIter<'_, '_, '_> {}
-impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexItemIter<'a, 'i, 'dt> {
+impl FindNext for DevTreeIndexIter<'_, '_, '_> {}
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexItem<'a, 'i, 'dt>;
 
+    // Yes, this is a complex function that would traditionally be questionable to inline.
+    //
+    // We inline this function because callers of this function may completely ignore return
+    // values. Effectively, we want callers to be able to choose if they need a node or a prop.
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        // - Advance through each node:
-        //   - Return than node
-        //     - Advance through each prop
-        //       - Return that prop
-        loop {
-            let prop_iter;
-
-            loop {
-                if let Some(prop) = &mut self.prop_iter {
-                    prop_iter = prop;
-                    break;
-                }
-
-                match self.node_iter.next() {
-                    Some(node) => {
-                        self.prop_iter = Some(node.props());
-                        return Some(DevTreeIndexItem::Node(node));
-                    }
-                    None => return None,
-                }
+        if let Some(cur_node) = self.node {
+            // Check if we've returned the first current node.
+            if !self.initial_node_returned {
+                self.initial_node_returned = true;
+                return Some(DevTreeIndexItem::Node(DevTreeIndexNode::new(self.index, cur_node)));
             }
 
-            if let Some(prop) = prop_iter.next() {
-                return Some(DevTreeIndexItem::Prop(prop));
+            // First iterate through any properties if there are some available.
+            if self.prop_idx < cur_node.num_props {
+                // Unsafe OK, we just checked the length of props.
+                let prop = unsafe { cur_node.prop_unchecked(self.prop_idx) };
+
+                self.prop_idx += 1;
+                return Some(DevTreeIndexItem::Prop(DevTreeIndexProp::new(self.index, &cur_node, prop)));
+            }
+
+            self.prop_idx = 0;
+
+            // Otherwise move on to the next node.
+            self.node = cur_node.first_child().or(cur_node.next());
+            if let Some(cur_node) = self.node {
+                return Some(DevTreeIndexItem::Node(DevTreeIndexNode::new(self.index, cur_node)));
             }
         }
+        None
     }
 }
