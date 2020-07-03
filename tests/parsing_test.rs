@@ -2,9 +2,9 @@ extern crate fdt_rs;
 
 use core::mem::size_of;
 
-use fdt_rs::prelude::*;
 use fdt_rs::base::DevTree;
 use fdt_rs::index::DevTreeIndex;
+use fdt_rs::prelude::*;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -230,10 +230,7 @@ pub mod index_tests {
         }
         assert_eq!(iter.count(), DFS_NODES.len());
     }
-
 }
-
-
 
 fn test_fdt_dfs<'dt>(idx: &FdtIndex<'dt>) {
     let iter = idx.index.fdt().nodes();
@@ -246,21 +243,26 @@ fn test_fdt_dfs<'dt>(idx: &FdtIndex<'dt>) {
 fn benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("sample-size-example");
 
-    group.significance_level(0.15).sample_size(1000);
+    group
+        .significance_level(0.01)
+        .sample_size(1000)
+        .measurement_time(core::time::Duration::new(5, 0));
 
     let idx = get_fdt_index();
 
-    group.bench_function("Raw DFS", 
-        |b| b.iter(|| test_fdt_dfs(&idx)));
+    group.bench_function("Raw DFS", |b| b.iter(|| test_fdt_dfs(&idx)));
 
-    group.bench_function("Index DFS", 
-        |b| b.iter(|| index_tests::test_index_dfs(&idx)));
+    group.bench_function("Index DFS", |b| {
+        b.iter(|| index_tests::test_index_dfs(&idx))
+    });
 
-    group.bench_function("Index Prop Iter", 
-        |b| b.iter(|| index_tests::test_prop_iteration(&idx)));
+    group.bench_function("Index Prop Iter", |b| {
+        b.iter(|| index_tests::test_prop_iteration(&idx))
+    });
 
-    group.bench_function("Index Root Prop Iter", 
-        |b| b.iter(|| index_tests::test_root_prop_iteration(&idx)));
+    group.bench_function("Index Root Prop Iter", |b| {
+        b.iter(|| index_tests::test_root_prop_iteration(&idx))
+    });
 
     group.finish();
 }
