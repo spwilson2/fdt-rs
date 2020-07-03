@@ -41,7 +41,7 @@ static DFS_NODES: &'static [&'static str] = &[
     "clint@2000000",
 ];
 
-struct FdtIndex<'dt> {
+pub struct FdtIndex<'dt> {
     index: DevTreeIndex<'dt, 'dt>,
     _vec: Vec<u8>,
 }
@@ -192,59 +192,78 @@ pub mod index_tests {
     // Test DFS iteration using a DevTreeIndex.
     #[test]
     fn dfs_iteration() {
-        let idx = get_fdt_index().index;
-
-        let iter = idx.nodes();
-
-        for (node, expected) in iter.clone().zip(DFS_NODES) {
-            assert_eq!(node.name().unwrap(), *expected);
-        }
-        assert!(iter.count() == DFS_NODES.len());
+        let idx = get_fdt_index();
+        test_index_dfs(&idx);
     }
 
     // Test iteration over the root nodes props.
     #[test]
     fn root_prop_iteration() {
-        let idx = get_fdt_index().index;
+        let idx = get_fdt_index();
+        test_root_prop_iteration(&idx);
+    }
+
+    #[test]
+    fn test_prop_iteration_() {
+        test_prop_iteration(&get_fdt_index());
+    }
+
+    pub fn test_prop_iteration<'dt>(idx: &FdtIndex<'dt>) {
+        let iter = idx.index.props();
+        assert_eq!(iter.count(), 105);
+    }
+
+    pub fn test_root_prop_iteration<'dt>(idx: &FdtIndex<'dt>) {
         let root_props = &["#address-cells", "#size-cells", "compatible", "model"];
 
-        let iter = idx.root().props();
+        let iter = idx.index.root().props();
         for (node, expected) in iter.clone().zip(root_props) {
             assert_eq!(node.name().unwrap(), *expected);
         }
         assert!(iter.count() == root_props.len());
     }
 
-    pub fn criterion_benchmark(c: &mut Criterion) {
-        c.bench_function("Indexed DFS", |b|  {
-            let idx = get_fdt_index();
-            b.iter(|| { 
-                let iter = idx.index.nodes();
-
-                for (node, expected) in iter.clone().zip(DFS_NODES) {
-                    assert_eq!(node.name().unwrap(), *expected);
-                }
-                assert!(iter.count() == DFS_NODES.len());
-            }); 
-        });
+    pub fn test_index_dfs<'dt>(idx: &FdtIndex<'dt>) {
+        let iter = idx.index.nodes();
+        for (node, expected) in iter.clone().zip(DFS_NODES) {
+            assert_eq!(node.name().unwrap(), *expected);
+        }
+        assert_eq!(iter.count(), DFS_NODES.len());
     }
 
-
 }
 
-fn criterion_benchmark2(c: &mut Criterion) {
-    c.bench_function("Raw DFS", |b|  {
-        unsafe {
-            let blob = DevTree::new(FDT).unwrap();
-            b.iter(move || { 
-                let iter = blob.nodes();
-                for (node, expected) in iter.clone().zip(DFS_NODES) {
-                    assert_eq!(node.name().unwrap(), *expected);
-                }
-                assert!(iter.count() == DFS_NODES.len());
-            }); 
-        }
-    });
+
+
+fn test_fdt_dfs<'dt>(idx: &FdtIndex<'dt>) {
+    let iter = idx.index.fdt().nodes();
+    for (node, expected) in iter.clone().zip(DFS_NODES) {
+        assert_eq!(node.name().unwrap(), *expected);
+    }
+    assert!(iter.count() == DFS_NODES.len());
 }
-criterion_group!(benches, index_tests::criterion_benchmark, criterion_benchmark2);
+
+fn benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("sample-size-example");
+
+    group.significance_level(0.15).sample_size(1000);
+
+    let idx = get_fdt_index();
+
+    group.bench_function("Raw DFS", 
+        |b| b.iter(|| test_fdt_dfs(&idx)));
+
+    group.bench_function("Index DFS", 
+        |b| b.iter(|| index_tests::test_index_dfs(&idx)));
+
+    group.bench_function("Index Prop Iter", 
+        |b| b.iter(|| index_tests::test_prop_iteration(&idx)));
+
+    group.bench_function("Index Root Prop Iter", 
+        |b| b.iter(|| index_tests::test_root_prop_iteration(&idx)));
+
+    group.finish();
+}
+
+criterion_group!(benches, benchmark);
 criterion_main!(benches);
