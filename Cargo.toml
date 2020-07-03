@@ -37,3 +37,11 @@ default = ["std"]
 std = []
 alloc = []
 doctest = []
+
+[dev-dependencies.criterion]
+version = "0.3"
+
+[[bench]]
+name = "parsing_test"
+path = "tests/parsing_test.rs"
+harness = false

@@ -4,6 +4,9 @@ use core::mem::size_of;
 
 use fdt_rs::prelude::*;
 use fdt_rs::base::DevTree;
+use fdt_rs::index::DevTreeIndex;
+
+use criterion::{criterion_group, criterion_main, Criterion};
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
@@ -37,6 +40,24 @@ static DFS_NODES: &'static [&'static str] = &[
     "interrupt-controller@c000000",
     "clint@2000000",
 ];
+
+struct FdtIndex<'dt> {
+    index: DevTreeIndex<'dt, 'dt>,
+    _vec: Vec<u8>,
+}
+
+fn get_fdt_index<'dt>() -> FdtIndex<'dt> {
+    unsafe {
+        let devtree = DevTree::new(FDT).unwrap();
+        let layout = DevTreeIndex::get_layout(&devtree).unwrap();
+        let mut vec = vec![0u8; layout.size() + layout.align()];
+        let slice = core::slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len());
+        FdtIndex {
+            index: DevTreeIndex::new(devtree, slice).unwrap(),
+            _vec: vec,
+        }
+    }
+}
 
 #[test]
 fn test_readsize_advice() {
@@ -137,28 +158,8 @@ fn find_all_compatible() {
     }
 }
 
-pub mod alloc_tests {
+pub mod index_tests {
     use super::*;
-    use fdt_rs::index;
-    use fdt_rs::index::DevTreeIndex;
-
-    struct FdtIndex<'dt> {
-        index: DevTreeIndex<'dt, 'dt>,
-        _vec: Vec<u8>,
-    }
-
-    fn get_fdt_index<'dt>() -> FdtIndex<'dt> {
-        unsafe {
-            let devtree = DevTree::new(FDT).unwrap();
-            let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
-            let mut vec = vec![0u8; layout.size() + layout.align()];
-            let slice = core::slice::from_raw_parts_mut(vec.as_mut_ptr(), vec.len());
-            FdtIndex {
-                index: index::DevTreeIndex::new(devtree, slice).unwrap(),
-                _vec: vec,
-            }
-        }
-    }
 
     // Test that we can create an index from a valid device tree
     #[test]
@@ -171,9 +172,9 @@ pub mod alloc_tests {
     fn create_sized_index() {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
-            let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
+            let layout = DevTreeIndex::get_layout(&devtree).unwrap();
             let mut vec = vec![0u8; layout.size() + layout.align()];
-            index::DevTreeIndex::new(devtree, vec.as_mut_slice()).unwrap();
+            DevTreeIndex::new(devtree, vec.as_mut_slice()).unwrap();
         }
     }
 
@@ -182,9 +183,9 @@ pub mod alloc_tests {
     fn expect_create_index_layout_fails_with_invalid_layout() {
         unsafe {
             let devtree = DevTree::new(FDT).unwrap();
-            let layout = index::DevTreeIndex::get_layout(&devtree).unwrap();
+            let layout = DevTreeIndex::get_layout(&devtree).unwrap();
             let mut vec = vec![0u8; layout.size() - 1];
-            index::DevTreeIndex::new(devtree, vec.as_mut_slice()).expect_err("Expected failure.");
+            DevTreeIndex::new(devtree, vec.as_mut_slice()).expect_err("Expected failure.");
         }
     }
 
@@ -207,10 +208,43 @@ pub mod alloc_tests {
         let idx = get_fdt_index().index;
         let root_props = &["#address-cells", "#size-cells", "compatible", "model"];
 
-        let iter = idx.root().unwrap().props();
+        let iter = idx.root().props();
         for (node, expected) in iter.clone().zip(root_props) {
             assert_eq!(node.name().unwrap(), *expected);
         }
         assert!(iter.count() == root_props.len());
     }
+
+    pub fn criterion_benchmark(c: &mut Criterion) {
+        c.bench_function("Indexed DFS", |b|  {
+            let idx = get_fdt_index();
+            b.iter(|| { 
+                let iter = idx.index.nodes();
+
+                for (node, expected) in iter.clone().zip(DFS_NODES) {
+                    assert_eq!(node.name().unwrap(), *expected);
+                }
+                assert!(iter.count() == DFS_NODES.len());
+            }); 
+        });
+    }
+
+
 }
+
+fn criterion_benchmark2(c: &mut Criterion) {
+    c.bench_function("Raw DFS", |b|  {
+        unsafe {
+            let blob = DevTree::new(FDT).unwrap();
+            b.iter(move || { 
+                let iter = blob.nodes();
+                for (node, expected) in iter.clone().zip(DFS_NODES) {
+                    assert_eq!(node.name().unwrap(), *expected);
+                }
+                assert!(iter.count() == DFS_NODES.len());
+            }); 
+        }
+    });
+}
+criterion_group!(benches, index_tests::criterion_benchmark, criterion_benchmark2);
+criterion_main!(benches);
