@@ -6,22 +6,22 @@ use crate::error::DevTreeError;
 
 /// A handle to a Device Tree Node within the device tree.
 #[derive(Clone)]
-pub struct DevTreeNode<'a> {
-    pub(super) name: Result<&'a str, DevTreeError>,
-    pub(super) parse_iter: DevTreeIter<'a>,
+pub struct DevTreeNode<'a, 'dt:'a> {
+    pub(super) name: Result<&'dt str, DevTreeError>,
+    pub(super) parse_iter: DevTreeIter<'a, 'dt>,
 }
 
-impl<'a> DevTreeNode<'a> {
+impl<'a, 'dt:'a> DevTreeNode<'a, 'dt> {
     /// Returns the name of the `DevTreeNode` (including unit address tag)
     #[inline]
-    pub fn name(&'a self) -> Result<&'a str, DevTreeError> {
+    pub fn name(&'a self) -> Result<&'dt str, DevTreeError> {
         self.name
     }
 
     /// Returns an iterator over this node's children [`DevTreeProp`]
     #[inline]
     #[must_use]
-    pub fn props(&'a self) -> DevTreeNodePropIter<'a> {
+    pub fn props(&'a self) -> DevTreeNodePropIter<'a, 'dt> {
         DevTreeNodePropIter::new(self)
     }
 
@@ -49,7 +49,7 @@ impl<'a> DevTreeNode<'a> {
     /// # Ok::<(), fdt_rs::DevTreeError>(())
     /// ```
     #[inline]
-    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a>> {
+    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a, 'dt>> {
         self.parse_iter.find_next_compatible_node(string)
     }
 }

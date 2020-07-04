@@ -15,10 +15,28 @@ pub trait DevTreePropStateBase<'r, 'dt: 'r> {
     fn fdt(&'r self) -> &'r DevTree<'dt>;
 }
 
+pub trait IterableDevTree<'a, 'dt:'a> {
+    type TreeNode;
+    type TreeIter;
+    type NodeIter;
+    type PropIter;
+
+    #[must_use]
+    fn props(&'a self) -> Self::PropIter;
+    #[must_use]
+    fn nodes(&'a self) -> Self::NodeIter;
+    #[must_use]
+    fn items(&'a self) -> Self::TreeIter;
+    fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode>;
+    #[must_use]
+    fn buf(&'a self) -> &'dt [u8];
+    fn root(&'a self) -> Option<Self::TreeNode>;
+}
+
 pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     /// Returns the name of the property within the device tree.
     #[inline]
-    fn name(&'r self) -> Result<&'dt str, DevTreeError> {
+    fn name(&'r self) -> Result<&'r str, DevTreeError> {
         PropTraitWrap(self).get_prop_str()
     }
 
@@ -156,7 +174,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_raw(&'r self) -> &'dt [u8] {
+    unsafe fn get_raw(&'r self) -> &'r [u8] {
         self.propbuf()
     }
 }
@@ -164,7 +182,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
 struct PropTraitWrap<'r, T: ?Sized>(&'r T);
 
 impl<'r, 'dt: 'r, T: DevTreePropState<'r, 'dt> + ?Sized> PropTraitWrap<'r, T> {
-    fn get_prop_str(&self) -> Result<&'dt str, DevTreeError> {
+    fn get_prop_str(&self) -> Result<&'r str, DevTreeError> {
         unsafe {
             let str_offset = self.0.fdt().off_dt_strings() + self.0.nameoff();
             let name = self.0.fdt().buf().read_bstring0(str_offset)?;

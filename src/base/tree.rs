@@ -1,6 +1,8 @@
 #[cfg(doc)]
 use crate::base::*;
 
+use crate::prelude::*;
+
 use core::mem::size_of;
 
 use crate::error::DevTreeError;
@@ -8,7 +10,7 @@ use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_header, FDT_MAGIC};
 
-use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreeReserveEntryIter};
+use super::iters::{DevTreePropIter, DevTreeIter, DevTreeNodeIter, DevTreeReserveEntryIter};
 use super::DevTreeNode;
 
 #[inline]
@@ -33,11 +35,11 @@ macro_rules! get_be32_field {
 /// This parser was written according to the v0.3 specification provided at
 /// https://www.devicetree.org/
 #[derive(Copy, Clone, Debug)]
-pub struct DevTree<'a> {
-    buf: &'a [u8],
+pub struct DevTree<'dt> {
+    buf: &'dt [u8],
 }
 
-impl<'a> DevTree<'a> {
+impl<'dt> DevTree<'dt> {
     pub const MIN_HEADER_SIZE: usize = size_of::<fdt_header>();
     /// Verify the magic header of a Device Tree buffer
     ///
@@ -113,7 +115,7 @@ impl<'a> DevTree<'a> {
     ///
     ///
     #[inline]
-    pub unsafe fn new(buf: &'a [u8]) -> Result<Self, DevTreeError> {
+    pub unsafe fn new(buf: &'dt [u8]) -> Result<Self, DevTreeError> {
         if Self::read_totalsize(buf)? < buf.len() {
             Err(DevTreeError::ParseError)
         } else {
@@ -177,35 +179,46 @@ impl<'a> DevTree<'a> {
         DevTreeReserveEntryIter::new(self)
     }
 
+}
+
+impl<'a, 'dt: 'a> IterableDevTree<'a, 'dt> for DevTree<'dt> {
+    type TreeNode = DevTreeNode<'a, 'dt>;
+    type TreeIter = DevTreeIter<'a, 'dt>;
+    type NodeIter = DevTreeNodeIter<'a, 'dt>;
+    type PropIter = DevTreePropIter<'a, 'dt>;
+
     /// Returns an iterator over [`DevTreeNode`] objects
     #[inline]
+    fn nodes(&'a self) -> Self::NodeIter {
+        DevTreeNodeIter::from(DevTreeIter::new(self))
+    }
+
     #[must_use]
-    pub fn nodes(&self) -> DevTreeNodeIter {
-        DevTreeNodeIter::new(self)
+    fn props(&'a self) -> Self::PropIter {
+        DevTreePropIter::from(DevTreeIter::new(self))
     }
 
     /// Returns an iterator over objects within the [`DevTreeItem`] enum
     #[inline]
-    #[must_use]
-    pub fn items(&self) -> DevTreeIter {
+    fn items(&'a self) -> Self::TreeIter {
         DevTreeIter::new(self)
-    }
-
-    /// Returns the root [`DevTreeNode`] object of the device tree (if it exists).
-    #[inline]
-    pub fn root(&self) -> Option<DevTreeNode> {
-        self.nodes().next()
     }
 
     /// Returns the first [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
     #[inline]
-    pub fn find_first_compatible_node(&'a self, string: &str) -> Option<DevTreeNode<'a>> {
+    fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode> {
         self.items().find_next_compatible_node(string)
     }
 
     #[inline]
-    pub fn buf(&self) -> &'a [u8] {
+    fn buf(&'a self) -> &'dt [u8] {
         self.buf
+    }
+
+    /// Returns the root [`DevTreeNode`] object of the device tree (if it exists).
+    #[inline]
+    fn root(&self) -> Option<DevTreeNode<'_, 'dt>> {
+        self.nodes().next()
     }
 }

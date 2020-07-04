@@ -2,6 +2,8 @@ use core::mem::size_of;
 
 use num_traits::FromPrimitive;
 
+use crate::prelude::*;
+
 use crate::base::DevTree;
 use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;

@@ -246,7 +246,7 @@ fn benchmark(c: &mut Criterion) {
     group
         .significance_level(0.01)
         .sample_size(1000)
-        .measurement_time(core::time::Duration::new(5, 0));
+        .measurement_time(core::time::Duration::new(30, 0));
 
     let idx = get_fdt_index();
 

@@ -12,13 +12,13 @@ use crate::spec::fdt_reserve_entry;
 
 /// An iterator over [`fdt_reserve_entry`] objects within the FDT.
 #[derive(Clone)]
-pub struct DevTreeReserveEntryIter<'a> {
+pub struct DevTreeReserveEntryIter<'a, 'dt:'a> {
     offset: usize,
-    fdt: &'a DevTree<'a>,
+    fdt: &'a DevTree<'dt>,
 }
 
-impl<'a> DevTreeReserveEntryIter<'a> {
-    pub(crate) fn new(fdt: &'a DevTree) -> Self {
+impl<'a, 'dt:'a> DevTreeReserveEntryIter<'a, 'dt> {
+    pub(crate) fn new(fdt: &'a DevTree<'dt>) -> Self {
         Self {
             offset: fdt.off_mem_rsvmap(),
             fdt,
@@ -31,13 +31,13 @@ impl<'a> DevTreeReserveEntryIter<'a> {
     ///
     /// The caller must verify that the current offset of this iterator is 32-bit aligned.
     /// (Each field is 32-bit aligned and they may be read individually.)
-    unsafe fn read(&self) -> Result<&'a fdt_reserve_entry, DevTreeError> {
+    unsafe fn read(&'a self) -> Result<&'dt fdt_reserve_entry, DevTreeError> {
         Ok(&*self.fdt.ptr_at(self.offset)?)
     }
 }
 
-impl<'a> Iterator for DevTreeReserveEntryIter<'a> {
-    type Item = &'a fdt_reserve_entry;
+impl<'a, 'dt: 'a> Iterator for DevTreeReserveEntryIter<'a, 'dt> {
+    type Item = &'dt fdt_reserve_entry;
     fn next(&mut self) -> Option<Self::Item> {
         if self.offset > self.fdt.totalsize() {
             None
@@ -58,7 +58,7 @@ impl<'a> Iterator for DevTreeReserveEntryIter<'a> {
 
 /// An iterator over all [`DevTreeItem`] objects.
 #[derive(Clone)]
-pub struct DevTreeIter<'a> {
+pub struct DevTreeIter<'a, 'dt:'a> {
     /// Offset of the last opened Device Tree Node.
     /// This is used to set properties' parent DevTreeNode.
     ///
@@ -69,14 +69,13 @@ pub struct DevTreeIter<'a> {
 
     /// Current offset into the flattened dt_struct section of the device tree.
     offset: usize,
-    pub(crate) fdt: &'a DevTree<'a>,
-    //parse_error: Option<>
+    pub(crate) fdt: &'a DevTree<'dt>,
 }
 
-def_common_iter_funcs!($ DevTreeNode<'a>, DevTreeProp<'a>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
+def_common_iter_funcs!($ DevTreeNode<'a, 'dt>, DevTreeProp<'a, 'dt>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
 
-impl<'a> DevTreeIter<'a> {
-    pub fn new(fdt: &'a DevTree) -> Self {
+impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
+    pub fn new(fdt: &'a DevTree<'dt>) -> Self {
         Self {
             offset: fdt.off_dt_struct(),
             current_prop_parent_off: None,
@@ -84,7 +83,7 @@ impl<'a> DevTreeIter<'a> {
         }
     }
 
-    fn current_node_itr(&self) -> Option<DevTreeIter<'a>> {
+    fn current_node_itr(&self) -> Option<DevTreeIter<'a, 'dt>> {
         match self.current_prop_parent_off {
             Some(offset) => Some(DevTreeIter {
                 fdt: self.fdt,
@@ -119,7 +118,7 @@ impl<'a> DevTreeIter<'a> {
         /// or [`Option::None`] if none exists.
     );
 
-    fn next_devtree_item(&mut self) -> Option<DevTreeItem<'a>> {
+    fn next_devtree_item(&mut self) -> Option<DevTreeItem<'a, 'dt>> {
         loop {
             let old_offset = self.offset;
             // Safe because we only pass offsets which are returned by next_devtree_token.
@@ -157,8 +156,8 @@ impl<'a> DevTreeIter<'a> {
     }
 }
 
-impl<'a> Iterator for DevTreeIter<'a> {
-    type Item = DevTreeItem<'a>;
+impl<'a, 'dt:'a> Iterator for DevTreeIter<'a, 'dt> {
+    type Item = DevTreeItem<'a, 'dt>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -168,63 +167,57 @@ impl<'a> Iterator for DevTreeIter<'a> {
 
 /// An iterator over [`DevTreeNode`] objects in the [`DevTree`]
 #[derive(Clone)]
-pub struct DevTreeNodeIter<'a>(DevTreeIter<'a>);
+pub struct DevTreeNodeIter<'a, 'dt:'a>(DevTreeIter<'a, 'dt>);
 
-impl<'a> DevTreeNodeIter<'a> {
-    pub(crate) fn new(fdt: &'a DevTree) -> Self {
-        Self(DevTreeIter::new(fdt))
-    }
-}
-
-impl<'a> Iterator for DevTreeNodeIter<'a> {
-    type Item = DevTreeNode<'a>;
+impl<'a, 'dt:'a> Iterator for DevTreeNodeIter<'a, 'dt> {
+    type Item = DevTreeNode<'a, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_node()
     }
 }
 
-impl<'a> From<DevTreeIter<'a>> for DevTreeNodeIter<'a> {
-    fn from(iter: DevTreeIter<'a>) -> Self {
+impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodeIter<'a, 'dt> {
+    fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
     }
 }
 
 /// An iterator over [`DevTreeProp`] objects in the [`DevTree`]
 #[derive(Clone)]
-pub struct DevTreePropIter<'a>(DevTreeIter<'a>);
+pub struct DevTreePropIter<'a, 'dt:'a>(DevTreeIter<'a, 'dt>);
 
-impl<'a> Iterator for DevTreePropIter<'a> {
-    type Item = DevTreeProp<'a>;
+impl<'a, 'dt:'a> Iterator for DevTreePropIter<'a, 'dt> {
+    type Item = DevTreeProp<'a, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_prop()
     }
 }
 
-impl<'a> From<DevTreeIter<'a>> for DevTreePropIter<'a> {
-    fn from(iter: DevTreeIter<'a>) -> Self {
+impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
+    fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
     }
 }
 
 /// An iterator over [`DevTreeProp`] objects on a single node within the [`DevTree`]
 #[derive(Clone)]
-pub struct DevTreeNodePropIter<'a>(DevTreeIter<'a>);
+pub struct DevTreeNodePropIter<'a, 'dt:'a>(DevTreeIter<'a, 'dt>);
 
-impl<'a> DevTreeNodePropIter<'a> {
-    pub(crate) fn new(node: &'a DevTreeNode) -> Self {
+impl<'a, 'dt:'a> DevTreeNodePropIter<'a, 'dt> {
+    pub(crate) fn new(node: &DevTreeNode<'a, 'dt>) -> Self {
         Self(node.parse_iter.clone())
     }
 }
 
-impl<'a> Iterator for DevTreeNodePropIter<'a> {
-    type Item = DevTreeProp<'a>;
+impl<'a, 'dt:'a> Iterator for DevTreeNodePropIter<'a, 'dt> {
+    type Item = DevTreeProp<'a, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_node_prop()
     }
 }
 
-impl<'a> From<DevTreeIter<'a>> for DevTreeNodePropIter<'a> {
-    fn from(iter: DevTreeIter<'a>) -> Self {
+impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodePropIter<'a, 'dt> {
+    fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
     }
 }

@@ -3,6 +3,8 @@ use core::marker::PhantomData;
 use core::mem::{align_of, size_of};
 use core::ptr::null_mut;
 
+use crate::prelude::*;
+
 use super::iters::{DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
 use super::DevTreeIndexNode;
 use crate::base::item::DevTreeItem;
@@ -305,19 +307,6 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         Ok(this)
     }
 
-    pub fn nodes(&self) -> DevTreeIndexNodeIter<'_, 'i, 'dt> {
-        DevTreeIndexNodeIter::from(self.items())
-    }
-
-    pub fn props(&self) -> DevTreeIndexPropIter<'_, 'i, 'dt> {
-        DevTreeIndexPropIter::from(self.items())
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn items(&self) -> DevTreeIndexIter<'_, 'i, 'dt> {
-        DevTreeIndexIter::new(self)
-    }
 
     #[inline]
     pub fn root(&self) -> DevTreeIndexNode<'_, 'i, 'dt> {
@@ -325,15 +314,45 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         unsafe { DevTreeIndexNode::new(self, &*self.root) }
     }
 
-    #[inline]
-    pub fn find_first_compatible_node(
-        &'_ self,
-        compat: &str,
-    ) -> Option<DevTreeIndexNode<'_, 'i, 'dt>> {
-        self.items().find_next_compatible_node(compat)
-    }
-
     pub fn fdt(&self) -> &DevTree<'dt> {
         &self.fdt
+    }
+}
+impl<'a, 'i: 'a, 'dt: 'i> IterableDevTree<'a, 'dt> for DevTreeIndex<'i, 'dt> {
+    type TreeNode = DevTreeIndexNode<'a, 'i, 'dt>;
+    type TreeIter = DevTreeIndexIter<'a, 'i, 'dt>;
+    type NodeIter = DevTreeIndexNodeIter<'a, 'i, 'dt>;
+    type PropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
+
+    /// Returns an iterator over [`DevTreeNode`] objects
+    #[inline]
+    fn nodes(&'a self) -> Self::NodeIter {
+        Self::NodeIter::from(Self::TreeIter::new(self))
+    }
+
+    #[must_use]
+    fn props(&'a self) -> Self::PropIter {
+        Self::PropIter::from(Self::TreeIter::new(self))
+    }
+
+    /// Returns an iterator over objects within the [`DevTreeItem`] enum
+    #[inline]
+    fn items(&'a self) -> Self::TreeIter {
+        Self::TreeIter::new(self)
+    }
+
+    #[inline]
+    fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode> {
+        self.items().find_next_compatible_node(string)
+    }
+
+    #[inline]
+    fn buf(&'a self) -> &'dt [u8] {
+        self.fdt.buf()
+    }
+
+    #[inline]
+    fn root(&'a self) -> Option<Self::TreeNode> {
+        Some(self.root())
     }
 }
