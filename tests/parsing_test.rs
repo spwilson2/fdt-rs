@@ -10,7 +10,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
-pub const FDT: &[u8] = &_Wrapper(*include_bytes!("riscv64-virt.dtb")).0;
+pub const FDT: &[u8] = &_Wrapper(*include_bytes!("../tests/riscv64-virt.dtb")).0;
 static DFS_NODES: &[&str] = &[
     "", // Root
     "flash@20000000",

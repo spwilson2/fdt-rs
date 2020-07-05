@@ -43,5 +43,4 @@ version = "0.3"
 
 [[bench]]
 name = "parsing_test"
-path = "tests/parsing_test.rs"
 harness = false
