@@ -36,7 +36,8 @@ first "ns16550a" compatible node, and if found prints that node's name.
 
 ```rust
 extern crate fdt_rs;
-use fdt_rs::*;
+use fdt_rs::prelude::*;
+use fdt_rs::base::*;
 
 // Place a device tree image into the rust binary and
 // align it to a 32-byte boundary by using a wrapper struct.
@@ -59,18 +60,6 @@ fn main() {
     // If found, print the name of that node (including unit address).
     if let Some(node) = devtree.find_first_compatible_node("ns16550a") {
         println!("{}", node.name().unwrap());
-    }
-
-
-    // Use our own custom search method to find bootargs
-    //
-    // Find a node with a custom zero-length property "company,secret"
-    if let Some((compatible_prop, _)) = devtree.find_prop(
-            |prop|
-                Ok((prop.name()? == "bootargs"))) {
-        unsafe {
-            println!("{}", compatible_prop.get_str().unwrap());
-        }
     }
 }
 
