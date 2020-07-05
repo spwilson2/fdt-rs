@@ -75,10 +75,11 @@ pub struct DevTreeIter<'a, 'dt:'a> {
 //def_common_iter_funcs!($ DevTreeNode<'a, 'dt>, DevTreeProp<'a, 'dt>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
 use crate::base::item::UnwrappableDevTreeItem;
 
-impl<'a, 'dt> ItemIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
+impl<'a, 'dt: 'a> ItemIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
     type TreeNodeIter = DevTreeNodeIter<'a, 'dt>;
     type TreePropIter = DevTreePropIter<'a, 'dt>;
 }
+
 impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
     pub fn new(fdt: &'a DevTree<'dt>) -> Self {
         Self {
@@ -194,6 +195,7 @@ impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
         Self(iter)
     }
 }
+
 impl<'a, 'dt:'a> From<DevTreeNodeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
     fn from(iter: DevTreeNodeIter<'a, 'dt>) -> Self {
         Self(iter.0)

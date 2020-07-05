@@ -36,6 +36,9 @@ pub trait IterableDevTree<'a, 'dt:'a> {
     fn root(&'a self) -> Option<Self::TreeNode>;
 }
 
+// Automatically define these utility methods for those which implement the base trait
+impl<'dt, T> DevTreePropState<'dt> for T where T:DevTreePropStateBase<'dt> {}
+
 pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     /// Returns the name of the property within the device tree.
     #[inline]

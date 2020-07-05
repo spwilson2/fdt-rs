@@ -23,7 +23,6 @@ impl<'r, 'a: 'r, 'i: 'a, 'dt: 'i> DevTreeIndexProp<'a, 'i, 'dt> {
     }
 }
 
-impl<'a, 'i: 'a, 'dt: 'i> DevTreePropState<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {}
 impl<'a, 'i: 'a, 'dt: 'i> DevTreePropStateBase<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
     type NodeType = DevTreeIndexNode<'a, 'i, 'dt>;
 

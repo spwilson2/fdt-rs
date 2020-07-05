@@ -10,7 +10,6 @@ pub struct DevTreeProp<'a, 'dt:'a> {
     nameoff: usize,
 }
 
-impl<'r, 'dt: 'r> DevTreePropState<'dt> for DevTreeProp<'r, 'dt> {}
 impl<'r, 'dt: 'r> DevTreePropStateBase<'dt> for DevTreeProp<'r, 'dt> {
     type NodeType = DevTreeNode<'r, 'dt>;
 
