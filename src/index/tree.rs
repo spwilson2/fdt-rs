@@ -5,7 +5,7 @@ use core::ptr::null_mut;
 
 use crate::prelude::*;
 
-use super::iters::{DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
+use super::iters::{DevTreeIndexCompatibleNodeIter, DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
 use super::DevTreeIndexNode;
 use crate::base::item::DevTreeItem;
 use crate::base::iters::DevTreeIter;
@@ -48,24 +48,23 @@ struct DTIBuilder<'i, 'dt: 'i> {
     prev_new_node: *mut DTINode<'i, 'dt>,
     front_off: usize,
 
-    /// Devtree Props may only occur before child nodes.
-    /// We'll call this the "node_header".
+    // Devtree Props may only occur before child nodes.
+    // We'll call this the "node_header".
     in_node_header: bool,
 }
 
 pub(super) struct DTINode<'i, 'dt: 'i> {
     parent: *const Self,
     first_child: *const Self,
-    /// `next` is either
-    /// 1. the next sibling node
-    /// 2. the next node in DFS (some higher up node)
-    /// It is 1 if (*next).parent == self.parent, otherwise it is 2.
+    // `next` is either
+    // 1. the next sibling node
+    // 2. the next node in DFS (some higher up node)
+    // It is 1 if (*next).parent == self.parent, otherwise it is 2.
     next: *const Self,
     pub(super) name: &'dt [u8],
 
-    //NOTE: We store props like C arrays.
-    // This the number of props after this node in memory.
-    // Props are a packed array after each node.
+    // NOTE: We store props like C arrays. Props are a packed array after each node.
+    // This is the number of props after this node in memory.
     pub(super) num_props: usize,
     _index: PhantomData<&'i u8>,
 }
@@ -317,13 +316,13 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     }
 }
 
-impl<'a, 'i: 'a, 'dt: 'i> IterableDevTree<'a, 'dt> for DevTreeIndex<'i, 'dt> {
+impl<'s, 'a, 'i: 'a, 'dt: 'i> IterableDevTree<'s, 'a, 'dt> for DevTreeIndex<'i, 'dt> {
     type TreeNode = DevTreeIndexNode<'a, 'i, 'dt>;
     type TreeIter = DevTreeIndexIter<'a, 'i, 'dt>;
     type NodeIter = DevTreeIndexNodeIter<'a, 'i, 'dt>;
     type PropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
+    type CompatibleIter = DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt>;
 
-    /// Returns an iterator over [`DevTreeNode`] objects
     #[must_use]
     fn nodes(&'a self) -> Self::NodeIter {
         Self::NodeIter::from(Self::TreeIter::new(self))
@@ -334,14 +333,13 @@ impl<'a, 'i: 'a, 'dt: 'i> IterableDevTree<'a, 'dt> for DevTreeIndex<'i, 'dt> {
         Self::PropIter::from(Self::TreeIter::new(self))
     }
 
-    /// Returns an iterator over objects within the [`DevTreeItem`] enum
     #[must_use]
     fn items(&'a self) -> Self::TreeIter {
         Self::TreeIter::new(self)
     }
 
-    fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode> {
-        self.items().next_compatible_node(string)
+    fn compatible_nodes(&'a self, string: &'s str) -> Self::CompatibleIter {
+        DevTreeIndexCompatibleNodeIter::new(self.items(), string)
     }
 
     #[must_use]

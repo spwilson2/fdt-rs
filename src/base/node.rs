@@ -23,7 +23,7 @@ impl<'a, 'dt: 'a> DevTreeNode<'a, 'dt> {
     /// Returns an iterator over this node's children [`DevTreeProp`]
     #[must_use]
     pub fn props(&'a self) -> DevTreeNodePropIter<'a, 'dt> {
-        DevTreeNodePropIter::new(self)
+        DevTreeNodePropIter::from(DevTreeIter::new(self.parse_iter.fdt))
     }
 
     /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property

@@ -50,6 +50,10 @@ pub(crate) mod priv_util;
 // When the doctest feature is enabled, add these utility functions.
 #[cfg(feature = "doctest")]
 pub mod doctest {
+    pub use crate::prelude::*;
+    pub use crate::base::*;
+    pub use crate::index::*;
+
     // Include the readme for doctests
     // https://doc.rust-lang.org/rustdoc/documentation-tests.html#include-items-only-when-collecting-doctests
     #[cfg(RUSTC_IS_NIGHTLY)]
@@ -59,4 +63,24 @@ pub mod doctest {
     #[repr(align(4))]
     struct _Wrapper<T>(T);
     pub const FDT: &[u8] = &_Wrapper(*include_bytes!("../tests/riscv64-virt.dtb")).0;
+
+    pub fn doctest_index<'i, 'dt:'i>() -> (DevTreeIndex<'i, 'dt>, Vec<u8>) {
+        // Create the device tree parser
+        let devtree = unsafe{ DevTree::new(FDT) }.unwrap();
+
+        // Get the layout required to build an index
+        let layout = DevTreeIndex::get_layout(&devtree).unwrap();
+
+        // Allocate memory for the index.  
+        // 
+        // This could be performed without a dynamic allocation
+        // if we allocated a static buffer or want to provide a
+        // raw buffer into uninitialized memory.
+        let mut vec = vec![0u8; layout.size() + layout.align()];
+        let (p, s) = (vec.as_mut_ptr(), vec.len());
+        unsafe {
+            let vec_copy = core::slice::from_raw_parts_mut(p,s);
+            (DevTreeIndex::new(devtree, vec_copy).unwrap(), vec)
+        }
+    }
 }

@@ -1,39 +1,8 @@
 use crate::prelude::*;
 
-//use super::item::DevTreeIndexItem;
 use super::tree::DTINode;
 use super::{DevTreeIndex, DevTreeIndexItem, DevTreeIndexNode, DevTreeIndexProp};
-
-/***********************************/
-/***********  DFS  *****************/
-/***********************************/
-
-#[derive(Clone)]
-pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i>(DevTreeIndexIter<'a, 'i, 'dt>);
-
-impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
-    for DevTreeIndexNodeIter<'a, 'i, 'dt>
-{
-    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
-        Self(iter)
-    }
-}
-
-impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexNodeIter<'a, 'i, 'dt>>
-    for DevTreeIndexIter<'a, 'i, 'dt>
-{
-    fn from(iter: DevTreeIndexNodeIter<'a, 'i, 'dt>) -> Self {
-        iter.0
-    }
-}
-
-impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
-    type Item = DevTreeIndexNode<'a, 'i, 'dt>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_node()
-    }
-}
+use crate::common::iter::{TreeCompatibleNodeIter, TreeNodeIter, TreeNodePropIter, TreePropIter};
 
 /***********************************/
 /***********  Node Siblings  *******/
@@ -58,51 +27,17 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> 
     }
 }
 
-/***********************************/
-/***********  Node Props ***********/
-/***********************************/
+pub type DevTreeIndexNodePropIter<'a, 'i, 'dt> =
+    TreeNodePropIter<'a, 'dt, DevTreeIndexIter<'a, 'i, 'dt>, DevTreeIndexItem<'a, 'i, 'dt>>;
 
-#[derive(Clone)]
-pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i>(DevTreeIndexIter<'a, 'i, 'dt>);
+pub type DevTreeIndexNodeIter<'a, 'i, 'dt> =
+    TreeNodeIter<'a, 'dt, DevTreeIndexIter<'a, 'i, 'dt>, DevTreeIndexItem<'a, 'i, 'dt>>;
 
-impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
-    for DevTreeIndexNodePropIter<'a, 'i, 'dt>
-{
-    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
-        Self(iter)
-    }
-}
+pub type DevTreeIndexPropIter<'a, 'i, 'dt> =
+    TreePropIter<'a, 'dt, DevTreeIndexIter<'a, 'i, 'dt>, DevTreeIndexItem<'a, 'i, 'dt>>;
 
-impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
-    type Item = DevTreeIndexProp<'a, 'i, 'dt>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_node_prop()
-    }
-}
-
-/***********************************/
-/***********  Props      ***********/
-/***********************************/
-
-#[derive(Clone)]
-pub struct DevTreeIndexPropIter<'a, 'i: 'a, 'dt: 'i>(DevTreeIndexIter<'a, 'i, 'dt>);
-
-impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
-    for DevTreeIndexPropIter<'a, 'i, 'dt>
-{
-    fn from(iter: DevTreeIndexIter<'a, 'i, 'dt>) -> Self {
-        Self(iter)
-    }
-}
-
-impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
-    type Item = DevTreeIndexProp<'a, 'i, 'dt>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_prop()
-    }
-}
+pub type DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> =
+    TreeCompatibleNodeIter<'s, 'a, 'dt, DevTreeIndexIter<'a, 'i, 'dt>, DevTreeIndexItem<'a, 'i, 'dt>>;
 
 /***********************************/
 /***********  Items      ***********/

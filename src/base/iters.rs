@@ -7,6 +7,7 @@ use core::str::from_utf8;
 use crate::prelude::*;
 
 use crate::base::parse::{next_devtree_token, ParsedTok};
+use crate::common::iter::{TreeCompatibleNodeIter, TreeNodeIter, TreeNodePropIter, TreePropIter};
 use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
 use crate::error::DevTreeError;
 use crate::spec::fdt_reserve_entry;
@@ -158,64 +159,11 @@ impl<'a, 'dt: 'a> Iterator for DevTreeIter<'a, 'dt> {
 }
 
 /// An iterator over [`DevTreeNode`] objects in the [`DevTree`]
-#[derive(Clone)]
-pub struct DevTreeNodeIter<'a, 'dt: 'a>(DevTreeIter<'a, 'dt>);
-
-impl<'a, 'dt: 'a> Iterator for DevTreeNodeIter<'a, 'dt> {
-    type Item = DevTreeNode<'a, 'dt>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_node()
-    }
-}
-
-impl<'a, 'dt: 'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodeIter<'a, 'dt> {
-    fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
-        Self(iter)
-    }
-}
-
-impl<'a, 'dt: 'a> From<DevTreeNodeIter<'a, 'dt>> for DevTreeIter<'a, 'dt> {
-    fn from(iter: DevTreeNodeIter<'a, 'dt>) -> Self {
-        iter.0
-    }
-}
-
-/// An iterator over [`DevTreeProp`] objects in the [`DevTree`]
-#[derive(Clone)]
-pub struct DevTreePropIter<'a, 'dt: 'a>(DevTreeIter<'a, 'dt>);
-
-impl<'a, 'dt: 'a> Iterator for DevTreePropIter<'a, 'dt> {
-    type Item = DevTreeProp<'a, 'dt>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_prop()
-    }
-}
-
-impl<'a, 'dt: 'a> From<DevTreeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
-    fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
-        Self(iter)
-    }
-}
-
-/// An iterator over [`DevTreeProp`] objects on a single node within the [`DevTree`]
-#[derive(Clone)]
-pub struct DevTreeNodePropIter<'a, 'dt: 'a>(DevTreeIter<'a, 'dt>);
-
-impl<'a, 'dt: 'a> DevTreeNodePropIter<'a, 'dt> {
-    pub(crate) fn new(node: &DevTreeNode<'a, 'dt>) -> Self {
-        Self(node.parse_iter.clone())
-    }
-}
-
-impl<'a, 'dt: 'a> Iterator for DevTreeNodePropIter<'a, 'dt> {
-    type Item = DevTreeProp<'a, 'dt>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next_node_prop()
-    }
-}
-
-impl<'a, 'dt: 'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodePropIter<'a, 'dt> {
-    fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
-        Self(iter)
-    }
-}
+pub type DevTreeNodeIter<'a, 'dt> =
+    TreeNodeIter<'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;
+pub type DevTreeNodePropIter<'a, 'dt> =
+    TreeNodePropIter<'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;
+pub type DevTreePropIter<'a, 'dt> =
+    TreePropIter<'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;
+pub type DevTreeCompatibleNodeIter<'s, 'a, 'dt> =
+    TreeCompatibleNodeIter<'s, 'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;

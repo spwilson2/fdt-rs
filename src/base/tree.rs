@@ -10,7 +10,7 @@ use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_header, FDT_MAGIC};
 
-use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreePropIter, DevTreeReserveEntryIter};
+use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreePropIter, DevTreeReserveEntryIter, DevTreeCompatibleNodeIter};
 use super::DevTreeNode;
 
 const fn is_aligned<T>(offset: usize) -> bool {
@@ -165,11 +165,12 @@ impl<'dt> DevTree<'dt> {
     }
 }
 
-impl<'a, 'dt: 'a> IterableDevTree<'a, 'dt> for DevTree<'dt> {
+impl<'s, 'a, 'dt: 'a> IterableDevTree<'s, 'a, 'dt> for DevTree<'dt> {
     type TreeNode = DevTreeNode<'a, 'dt>;
     type TreeIter = DevTreeIter<'a, 'dt>;
     type NodeIter = DevTreeNodeIter<'a, 'dt>;
     type PropIter = DevTreePropIter<'a, 'dt>;
+    type CompatibleIter = DevTreeCompatibleNodeIter<'s, 'a, 'dt>;
 
     /// Returns an iterator over [`DevTreeNode`] objects
     fn nodes(&'a self) -> Self::NodeIter {
@@ -188,8 +189,8 @@ impl<'a, 'dt: 'a> IterableDevTree<'a, 'dt> for DevTree<'dt> {
 
     /// Returns the first [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
-    fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode> {
-        self.items().next_compatible_node(string)
+    fn compatible_nodes(&'a self, string: &'s str) -> Self::CompatibleIter {
+        DevTreeCompatibleNodeIter::new(self.items(), string)
     }
 
     fn buf(&'a self) -> &'dt [u8] {
