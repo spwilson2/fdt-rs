@@ -4,20 +4,21 @@ use core::mem::size_of;
 use core::num::NonZeroUsize;
 use core::str::from_utf8;
 
+use crate::prelude::*;
+
 use crate::base::parse::{next_devtree_token, ParsedTok};
 use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
 use crate::error::DevTreeError;
-use crate::prelude::*;
 use crate::spec::fdt_reserve_entry;
 
 /// An iterator over [`fdt_reserve_entry`] objects within the FDT.
 #[derive(Clone)]
-pub struct DevTreeReserveEntryIter<'a, 'dt:'a> {
+pub struct DevTreeReserveEntryIter<'a, 'dt: 'a> {
     offset: usize,
     fdt: &'a DevTree<'dt>,
 }
 
-impl<'a, 'dt:'a> DevTreeReserveEntryIter<'a, 'dt> {
+impl<'a, 'dt: 'a> DevTreeReserveEntryIter<'a, 'dt> {
     pub(crate) fn new(fdt: &'a DevTree<'dt>) -> Self {
         Self {
             offset: fdt.off_mem_rsvmap(),
@@ -58,7 +59,7 @@ impl<'a, 'dt: 'a> Iterator for DevTreeReserveEntryIter<'a, 'dt> {
 
 /// An iterator over all [`DevTreeItem`] objects.
 #[derive(Clone)]
-pub struct DevTreeIter<'a, 'dt:'a> {
+pub struct DevTreeIter<'a, 'dt: 'a> {
     /// Offset of the last opened Device Tree Node.
     /// This is used to set properties' parent DevTreeNode.
     ///
@@ -72,15 +73,12 @@ pub struct DevTreeIter<'a, 'dt:'a> {
     pub(crate) fdt: &'a DevTree<'dt>,
 }
 
-//def_common_iter_funcs!($ DevTreeNode<'a, 'dt>, DevTreeProp<'a, 'dt>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
-use crate::base::item::UnwrappableDevTreeItem;
-
-impl<'a, 'dt: 'a> ItemIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
+impl<'a, 'dt: 'a> TreeIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
     type TreeNodeIter = DevTreeNodeIter<'a, 'dt>;
     type TreePropIter = DevTreePropIter<'a, 'dt>;
 }
 
-impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
+impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
     pub fn new(fdt: &'a DevTree<'dt>) -> Self {
         Self {
             offset: fdt.off_dt_struct(),
@@ -105,11 +103,11 @@ impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
             match self.next() {
                 Some(item) => {
                     if let Some(prop) = item.prop() {
-                        return Some(prop)
+                        return Some(prop);
                     }
                     // Continue if a new node.
-                    continue
-                },
+                    continue;
+                }
                 _ => return None,
             }
         }
@@ -153,7 +151,7 @@ impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
     }
 }
 
-impl<'a, 'dt:'a> Iterator for DevTreeIter<'a, 'dt> {
+impl<'a, 'dt: 'a> Iterator for DevTreeIter<'a, 'dt> {
     type Item = DevTreeItem<'a, 'dt>;
 
     #[inline]
@@ -164,62 +162,62 @@ impl<'a, 'dt:'a> Iterator for DevTreeIter<'a, 'dt> {
 
 /// An iterator over [`DevTreeNode`] objects in the [`DevTree`]
 #[derive(Clone)]
-pub struct DevTreeNodeIter<'a, 'dt:'a>(DevTreeIter<'a, 'dt>);
+pub struct DevTreeNodeIter<'a, 'dt: 'a>(DevTreeIter<'a, 'dt>);
 
-impl<'a, 'dt:'a> Iterator for DevTreeNodeIter<'a, 'dt> {
+impl<'a, 'dt: 'a> Iterator for DevTreeNodeIter<'a, 'dt> {
     type Item = DevTreeNode<'a, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_node()
     }
 }
 
-impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodeIter<'a, 'dt> {
+impl<'a, 'dt: 'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodeIter<'a, 'dt> {
     fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
     }
 }
 
+impl<'a, 'dt: 'a> From<DevTreeNodeIter<'a, 'dt>> for DevTreeIter<'a, 'dt> {
+    fn from(iter: DevTreeNodeIter<'a, 'dt>) -> Self {
+        iter.0
+    }
+}
+
 /// An iterator over [`DevTreeProp`] objects in the [`DevTree`]
 #[derive(Clone)]
-pub struct DevTreePropIter<'a, 'dt:'a>(DevTreeIter<'a, 'dt>);
+pub struct DevTreePropIter<'a, 'dt: 'a>(DevTreeIter<'a, 'dt>);
 
-impl<'a, 'dt:'a> Iterator for DevTreePropIter<'a, 'dt> {
+impl<'a, 'dt: 'a> Iterator for DevTreePropIter<'a, 'dt> {
     type Item = DevTreeProp<'a, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_prop()
     }
 }
 
-impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
+impl<'a, 'dt: 'a> From<DevTreeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
     fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
     }
 }
 
-impl<'a, 'dt:'a> From<DevTreeNodeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
-    fn from(iter: DevTreeNodeIter<'a, 'dt>) -> Self {
-        Self(iter.0)
-    }
-}
-
 /// An iterator over [`DevTreeProp`] objects on a single node within the [`DevTree`]
 #[derive(Clone)]
-pub struct DevTreeNodePropIter<'a, 'dt:'a>(DevTreeIter<'a, 'dt>);
+pub struct DevTreeNodePropIter<'a, 'dt: 'a>(DevTreeIter<'a, 'dt>);
 
-impl<'a, 'dt:'a> DevTreeNodePropIter<'a, 'dt> {
+impl<'a, 'dt: 'a> DevTreeNodePropIter<'a, 'dt> {
     pub(crate) fn new(node: &DevTreeNode<'a, 'dt>) -> Self {
         Self(node.parse_iter.clone())
     }
 }
 
-impl<'a, 'dt:'a> Iterator for DevTreeNodePropIter<'a, 'dt> {
+impl<'a, 'dt: 'a> Iterator for DevTreeNodePropIter<'a, 'dt> {
     type Item = DevTreeProp<'a, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_node_prop()
     }
 }
 
-impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodePropIter<'a, 'dt> {
+impl<'a, 'dt: 'a> From<DevTreeIter<'a, 'dt>> for DevTreeNodePropIter<'a, 'dt> {
     fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
     }

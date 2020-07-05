@@ -1,3 +1,5 @@
+//! Base device tree parsing utils.
+//!
 #[doc(hidden)]
 pub mod item;
 #[doc(hidden)]
@@ -6,9 +8,6 @@ pub mod node;
 pub mod prop;
 #[doc(hidden)]
 pub mod tree;
-
-#[macro_use]
-pub mod iter_macro;
 
 pub mod iters;
 pub mod parse;

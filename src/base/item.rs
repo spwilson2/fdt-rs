@@ -1,21 +1,15 @@
 use crate::prelude::*;
+
 use crate::base::{DevTreeNode, DevTreeProp};
 
 /// An enum which contains either a [`DevTreeNode`] or a [`DevTreeProp`]
 #[derive(Clone)]
-pub enum DevTreeItem<'a, 'dt:'a> {
+pub enum DevTreeItem<'a, 'dt: 'a> {
     Node(DevTreeNode<'a, 'dt>),
     Prop(DevTreeProp<'a, 'dt>),
 }
 
-pub trait UnwrappableDevTreeItem<'dt> {
-    type TreeNode;
-    type TreeProp: DevTreePropState<'dt>;
-    fn node(self) -> Option<Self::TreeNode>;
-    fn prop(self) -> Option<Self::TreeProp>;
-}
-
-impl<'a, 'dt:'a> UnwrappableDevTreeItem<'dt> for DevTreeItem<'a, 'dt> {
+impl<'a, 'dt: 'a> UnwrappableDevTreeItem<'dt> for DevTreeItem<'a, 'dt> {
     type TreeNode = DevTreeNode<'a, 'dt>;
     type TreeProp = DevTreeProp<'a, 'dt>;
     #[inline]

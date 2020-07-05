@@ -1,15 +1,16 @@
 use core::str::from_utf8;
 
+use crate::prelude::*;
+
 use crate::base::DevTree;
 use crate::error::DevTreeError;
-use crate::prelude::*;
 use crate::spec::Phandle;
 
 #[cfg(doc)]
 use crate::base::DevTreeProp;
 
 #[doc(hidden)]
-pub trait DevTreePropStateBase<'dt> {
+pub trait PropReaderBase<'dt> {
     type NodeType;
 
     fn propbuf(&self) -> &'dt [u8];
@@ -18,28 +19,10 @@ pub trait DevTreePropStateBase<'dt> {
     fn node(&self) -> Self::NodeType;
 }
 
-pub trait IterableDevTree<'a, 'dt:'a> {
-    type TreeNode;
-    type TreeIter;
-    type NodeIter;
-    type PropIter;
-
-    #[must_use]
-    fn props(&'a self) -> Self::PropIter;
-    #[must_use]
-    fn nodes(&'a self) -> Self::NodeIter;
-    #[must_use]
-    fn items(&'a self) -> Self::TreeIter;
-    fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode>;
-    #[must_use]
-    fn buf(&'a self) -> &'dt [u8];
-    fn root(&'a self) -> Option<Self::TreeNode>;
-}
-
 // Automatically define these utility methods for those which implement the base trait
-impl<'dt, T> DevTreePropState<'dt> for T where T:DevTreePropStateBase<'dt> {}
+impl<'dt, T> PropReader<'dt> for T where T: PropReaderBase<'dt> {}
 
-pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
+pub trait PropReader<'dt>: PropReaderBase<'dt> {
     /// Returns the name of the property within the device tree.
     #[inline]
     fn name(&self) -> Result<&'dt str, DevTreeError> {
@@ -83,7 +66,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     ///
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_u64(&self, offset: usize) -> Result<u64, DevTreeError> {
         self.propbuf()
@@ -96,7 +79,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     ///
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_phandle(&self, offset: usize) -> Result<Phandle, DevTreeError> {
         self.propbuf()
@@ -107,7 +90,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     /// Returns the string property as a string if it can be parsed as one.
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_str(&self) -> Result<&'dt str, DevTreeError> {
         self.get_str_at(0)
@@ -116,7 +99,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     /// Returns the string at the given offset within the property.
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_str_at(&self, offset: usize) -> Result<&'dt str, DevTreeError> {
         match PropTraitWrap(self).get_string(offset, true) {
@@ -129,7 +112,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
 
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_str_count(&self) -> Result<usize, DevTreeError> {
         PropTraitWrap(self).iter_str_list(None)
@@ -140,37 +123,11 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     ///
     /// If an error occurred parsing one or more of the strings (E.g. they were not valid
     /// UTF-8/ASCII strings) an [`Err`] of type [`DevTreeError`] will be returned.
-    /// ```
-    /// # #[cfg(not(feature = "ascii"))]
-    /// # {
-    /// # let mut devtree = fdt_rs::doctest::get_devtree();
-    /// # let node = devtree.nodes().next().unwrap();
-    /// # let prop = node.props().next().unwrap();
-    /// # unsafe {
-    /// // Get the number of possible strings
-    /// if let Ok(count) = prop.get_str_count() {
-    ///
-    ///     // Allocate a vector to store the strings
-    ///     let mut vec: Vec<Option<&str>> = vec![None; count];
-    ///
-    ///     // Read and parse the strings
-    ///     if let Ok(_) = prop.get_strlist(&mut vec) {
-    ///         let mut iter = vec.iter();
-    ///
-    ///         // Print out all the strings we found in the property
-    ///         while let Some(Some(s)) = iter.next() {
-    ///             print!("{} ", s);
-    ///         }
-    ///     }
-    /// }
-    /// # }
-    /// # }
-    /// # Ok::<(), fdt_rs::DevTreeError>(())
-    /// ```
-    ///
+    /// 
+    /// TODO Example
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_strlist(&self, list: &mut [Option<&'dt str>]) -> Result<usize, DevTreeError> {
         PropTraitWrap(self).iter_str_list(Some(list))
@@ -178,7 +135,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
 
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     #[inline]
     unsafe fn get_raw(&self) -> &'dt [u8] {
         self.propbuf()
@@ -187,7 +144,7 @@ pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
 
 struct PropTraitWrap<'r, T: ?Sized>(&'r T);
 
-impl<'r, 'dt: 'r, T: DevTreePropState<'dt> + ?Sized> PropTraitWrap<'r, T> {
+impl<'r, 'dt: 'r, T: PropReader<'dt> + ?Sized> PropTraitWrap<'r, T> {
     fn get_prop_str(&self) -> Result<&'dt str, DevTreeError> {
         unsafe {
             let str_offset = self.0.fdt().off_dt_strings() + self.0.nameoff();
@@ -198,7 +155,7 @@ impl<'r, 'dt: 'r, T: DevTreePropState<'dt> + ?Sized> PropTraitWrap<'r, T> {
 
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     unsafe fn get_string(
         &self,
         offset: usize,
@@ -224,7 +181,7 @@ impl<'r, 'dt: 'r, T: DevTreePropState<'dt> + ?Sized> PropTraitWrap<'r, T> {
 
     /// # Safety
     ///
-    /// See the safety note of [`DevTreePropState::get_u32`]
+    /// See the safety note of [`PropReader::get_u32`]
     unsafe fn iter_str_list(
         &self,
         mut list_opt: Option<&mut [Option<&'dt str>]>,
@@ -244,7 +201,7 @@ impl<'r, 'dt: 'r, T: DevTreePropState<'dt> + ?Sized> PropTraitWrap<'r, T> {
                 (*list)[count] = Some(s.unwrap());
             };
         }
-        // For some reason infinite for loops need unreachable.
+        // Unreachable due to infinite for loop.
         unreachable!();
     }
 }

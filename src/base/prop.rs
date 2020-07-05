@@ -4,13 +4,13 @@ use crate::prelude::*;
 
 /// A handle to a [`DevTreeNode`]'s Device Tree Property
 #[derive(Clone)]
-pub struct DevTreeProp<'a, 'dt:'a> {
+pub struct DevTreeProp<'a, 'dt: 'a> {
     parent_iter: DevTreeIter<'a, 'dt>,
     propbuf: &'dt [u8],
     nameoff: usize,
 }
 
-impl<'r, 'dt: 'r> DevTreePropStateBase<'dt> for DevTreeProp<'r, 'dt> {
+impl<'r, 'dt: 'r> PropReaderBase<'dt> for DevTreeProp<'r, 'dt> {
     type NodeType = DevTreeNode<'r, 'dt>;
 
     #[inline]
@@ -36,9 +36,12 @@ impl<'r, 'dt: 'r> DevTreePropStateBase<'dt> for DevTreeProp<'r, 'dt> {
     }
 }
 
-impl<'a, 'dt:'a> DevTreeProp<'a, 'dt> {
-
-    pub(super) fn new(parent_iter: DevTreeIter<'a, 'dt>, propbuf: &'dt [u8], nameoff: usize) -> Self {
+impl<'a, 'dt: 'a> DevTreeProp<'a, 'dt> {
+    pub(super) fn new(
+        parent_iter: DevTreeIter<'a, 'dt>,
+        propbuf: &'dt [u8],
+        nameoff: usize,
+    ) -> Self {
         Self {
             parent_iter,
             propbuf,

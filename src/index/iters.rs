@@ -19,6 +19,14 @@ impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexIter<'a, 'i, 'dt>>
     }
 }
 
+impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexNodeIter<'a, 'i, 'dt>>
+    for DevTreeIndexIter<'a, 'i, 'dt>
+{
+    fn from(iter: DevTreeIndexNodeIter<'a, 'i, 'dt>) -> Self {
+        iter.0
+    }
+}
+
 impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
 
@@ -96,14 +104,6 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
     }
 }
 
-impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexNodeIter<'a, 'i, 'dt>>
-    for DevTreeIndexPropIter<'a, 'i, 'dt>
-{
-    fn from(iter: DevTreeIndexNodeIter<'a, 'i, 'dt>) -> Self {
-        Self(iter.0)
-    }
-}
-
 /***********************************/
 /***********  Items      ***********/
 /***********************************/
@@ -116,7 +116,9 @@ pub struct DevTreeIndexIter<'a, 'i: 'a, 'dt: 'i> {
     initial_node_returned: bool,
 }
 
-impl<'a, 'i: 'a, 'dt:'i> ItemIterator<'a, 'dt, DevTreeIndexItem<'a, 'i, 'dt>> for DevTreeIndexIter<'a, 'i,'dt> {
+impl<'a, 'i: 'a, 'dt: 'i> TreeIterator<'a, 'dt, DevTreeIndexItem<'a, 'i, 'dt>>
+    for DevTreeIndexIter<'a, 'i, 'dt>
+{
     type TreeNodeIter = DevTreeIndexNodeIter<'a, 'i, 'dt>;
     type TreePropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
 }
@@ -132,7 +134,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
     #[inline]
     pub fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
         Self {
-            index: node.index,
+            index: node.index(),
             initial_node_returned: true,
             node: Some(node.node),
             prop_idx: 0,

@@ -8,7 +8,7 @@ pub enum DevTreeIndexItem<'a, 'i: 'a, 'dt: 'i> {
     Prop(DevTreeIndexProp<'a, 'i, 'dt>),
 }
 
-impl<'a, 'i:'a, 'dt:'i> UnwrappableDevTreeItem<'dt> for DevTreeIndexItem<'a, 'i, 'dt> {
+impl<'a, 'i: 'a, 'dt: 'i> UnwrappableDevTreeItem<'dt> for DevTreeIndexItem<'a, 'i, 'dt> {
     type TreeNode = DevTreeIndexNode<'a, 'i, 'dt>;
     type TreeProp = DevTreeIndexProp<'a, 'i, 'dt>;
     #[inline]

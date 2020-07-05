@@ -1,8 +1,11 @@
-//! A flattened device tree parser for embedded, low memory, and safety-critical no-std environment
+//! A flattened device tree (FDT) parser for embedded, low memory, and safety-critical no-std
+//! environments.
 //!
-//! * This device tree parser uses zero-allocation
-//! * Remains safe even in the event of an invalid device tree
-//! * Never performs misaligned reads
+//! Includes the following features:
+//!
+//! * [Low-level FDT parsing utilities to build your own parser](base::parse)
+//! * [Simple utilites based on in-order parsing of the FDT](base)
+//! * [Performant utilities built on a no-alloc index](index)
 //!
 //! ## Features
 //!
@@ -11,9 +14,13 @@
 //!
 //! ```toml
 //! [dependencies.fdt-rs]
-//! version = "0.1"
+//! version = "x"
 //! default-features = false
 //! ```
+//!
+//! ## Examples
+//!
+//!
 #![deny(clippy::all, clippy::cargo)]
 #![allow(clippy::as_conversions)]
 // Test the readme if using nightly.
@@ -30,19 +37,19 @@ extern crate static_assertions;
 extern crate unsafe_unwrap;
 
 pub mod error;
-#[macro_use]
 pub mod base;
 pub mod index;
 pub mod prelude;
-pub(crate) mod priv_util;
 pub mod spec;
-pub mod traits;
+
+#[doc(hidden)]
+pub mod common;
+
+pub(crate) mod priv_util;
 
 // When the doctest feature is enabled, add these utility functions.
 #[cfg(feature = "doctest")]
 pub mod doctest {
-    use crate::*;
-
     // Include the readme for doctests
     // https://doc.rust-lang.org/rustdoc/documentation-tests.html#include-items-only-when-collecting-doctests
     #[cfg(RUSTC_IS_NIGHTLY)]
@@ -52,8 +59,4 @@ pub mod doctest {
     #[repr(align(4))]
     struct _Wrapper<T>(T);
     pub const FDT: &[u8] = &_Wrapper(*include_bytes!("../tests/riscv64-virt.dtb")).0;
-
-    pub fn get_devtree() -> DevTree<'static> {
-        unsafe { DevTree::new(FDT).unwrap() }
-    }
 }

@@ -7,9 +7,9 @@ pub enum SliceReadError {
     UnexpectedEndOfInput,
 }
 
-pub type SliceReadResult<T> = Result<T, SliceReadError>;
+pub(crate) type SliceReadResult<T> = Result<T, SliceReadError>;
 
-pub trait SliceRead<'a> {
+pub(crate) trait SliceRead<'a> {
     unsafe fn unsafe_read_be_u32(&self, pos: usize) -> SliceReadResult<u32>;
     unsafe fn unsafe_read_be_u64(&self, pos: usize) -> SliceReadResult<u64>;
     unsafe fn read_be_u32(&self, pos: usize) -> SliceReadResult<u32>;

@@ -1,9 +1,35 @@
-//! This module provides advanced DevTree utilities which require an index over a flattened device
-//! tree to remain performant. As such, we rely on an allocator to provide heap allocations to
-//! generate and store this index.
+//! Performant device tree parsing utils provided using an index.
 //!
-//! (Ideally we wouldn't require a full system allocator and could just use a small memory pool
-//! allocator. If anyone knows of such an allocator/interface reach out and we might add this.)
+//! This module provides advanced Device Tree utilities. These utilites depend on an index built
+//! over a parsed device tree. This index may be built without an allocator. In order to build the
+//! index, only a single `[u8]` buffer is required.
+//!
+//! # Examples
+//!
+//! ## Initialization
+//!
+//! ```
+//! # use fdt_rs::base::*;
+//! # use fdt_rs::index::*;
+//! # use fdt_rs::doctest::FDT;
+
+//! // Create the device tree parser
+//! let devtree = unsafe{ DevTree::new(FDT) }.unwrap();
+//!
+//! // Get the layout required to build an index
+//! let layout = DevTreeIndex::get_layout(&devtree).unwrap();
+//!
+//! // Allocate memory for the index.  
+//! // 
+//! // This could be performed without a dynamic allocation
+//! // if we allocated a static buffer or want to provide a
+//! // raw buffer into uninitialized memory.
+//! let mut vec = vec![0u8; layout.size() + layout.align()];
+//! let idx = DevTreeIndex::new(devtree, vec.as_mut_slice()).unwrap();
+//!
+//! ```
+//! ## Search
+//!
 
 #[doc(hidden)]
 pub mod item;

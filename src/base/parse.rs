@@ -1,3 +1,6 @@
+//! Low level flattened device tree parsing.
+//!
+
 use core::mem::size_of;
 
 use num_traits::FromPrimitive;

@@ -6,7 +6,7 @@ use crate::error::DevTreeError;
 
 #[derive(Clone)]
 pub struct DevTreeIndexNode<'a, 'i: 'a, 'dt: 'i> {
-    pub index: &'a DevTreeIndex<'i, 'dt>,
+    index: &'a DevTreeIndex<'i, 'dt>,
     pub(super) node: &'a DTINode<'i, 'dt>,
 }
 
@@ -15,11 +15,15 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
         Self { node, index }
     }
 
+    pub fn index(&self) -> &'a DevTreeIndex<'i, 'dt> {
+        self.index
+    }
+
     pub fn name(&self) -> Result<&'dt str, DevTreeError> {
         from_utf8(self.node.name).map_err(DevTreeError::StrError)
     }
 
-    pub fn siblings(&self) -> DevTreeIndexNodeSiblingIter<'_, 'i, 'dt> {
+    pub fn siblings(&self) -> DevTreeIndexNodeSiblingIter<'a, 'i, 'dt> {
         DevTreeIndexNodeSiblingIter::from(DevTreeIndexIter::from_node(self.clone()))
     }
 

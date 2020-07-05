@@ -1,3 +1,5 @@
+//! Errors reported by this library
+
 #[cfg(doc)]
 use crate::index::DevTreeIndex;
 

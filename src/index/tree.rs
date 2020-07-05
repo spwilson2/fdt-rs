@@ -307,7 +307,6 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         Ok(this)
     }
 
-
     #[inline]
     pub fn root(&self) -> DevTreeIndexNode<'_, 'i, 'dt> {
         // Unsafe OK. The root node always exits.

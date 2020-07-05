@@ -8,12 +8,12 @@ use crate::error::DevTreeError;
 
 /// A handle to a Device Tree Node within the device tree.
 #[derive(Clone)]
-pub struct DevTreeNode<'a, 'dt:'a> {
+pub struct DevTreeNode<'a, 'dt: 'a> {
     pub(super) name: Result<&'dt str, DevTreeError>,
     pub(super) parse_iter: DevTreeIter<'a, 'dt>,
 }
 
-impl<'a, 'dt:'a> DevTreeNode<'a, 'dt> {
+impl<'a, 'dt: 'a> DevTreeNode<'a, 'dt> {
     /// Returns the name of the `DevTreeNode` (including unit address tag)
     #[inline]
     pub fn name(&'a self) -> Result<&'dt str, DevTreeError> {
@@ -35,21 +35,7 @@ impl<'a, 'dt:'a> DevTreeNode<'a, 'dt> {
     /// The following example iterates through all nodes with compatible value "virtio,mmio"
     /// and prints each node's name.
     ///
-    /// ```
-    /// # let mut devtree = fdt_rs::doctest::get_devtree();
-    /// let compat = "virtio,mmio";
-    /// # let mut count = 0;
-    /// if let Some(mut cur) = devtree.root() {
-    ///     while let Some(node) = cur.find_next_compatible_node(compat) {
-    ///         println!("{}", node.name()?);
-    ///         # count += 1;
-    ///         # assert!(node.name()?.starts_with("virtio_mmio@1000"));
-    ///         cur = node;
-    ///     }
-    /// }
-    /// # assert!(count == 8);
-    /// # Ok::<(), fdt_rs::DevTreeError>(())
-    /// ```
+    /// TODO
     #[inline]
     pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a, 'dt>> {
         self.parse_iter.find_next_compatible_node(string)

@@ -10,7 +10,7 @@ use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_header, FDT_MAGIC};
 
-use super::iters::{DevTreePropIter, DevTreeIter, DevTreeNodeIter, DevTreeReserveEntryIter};
+use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreePropIter, DevTreeReserveEntryIter};
 use super::DevTreeNode;
 
 #[inline]
@@ -73,18 +73,7 @@ impl<'dt> DevTree<'dt> {
     ///
     /// # Example
     ///
-    /// ```
-    /// # use fdt_rs::*;
-    /// # let buf = fdt_rs::doctest::FDT;
-    /// // Data is re-interpreted as a device tree, this is unsafe.
-    /// // See safety section
-    /// unsafe {
-    ///     let size = DevTree::read_totalsize(buf)?;
-    ///     let buf = &buf[..size];
-    ///     let dt = DevTree::new(buf)?;
-    /// }
-    /// # Ok::<(), fdt_rs::DevTreeError>(())
-    /// ```
+    /// TODO
     ///
     /// # Safety
     ///
@@ -178,7 +167,6 @@ impl<'dt> DevTree<'dt> {
     pub fn reserved_entries(&self) -> DevTreeReserveEntryIter {
         DevTreeReserveEntryIter::new(self)
     }
-
 }
 
 impl<'a, 'dt: 'a> IterableDevTree<'a, 'dt> for DevTree<'dt> {
