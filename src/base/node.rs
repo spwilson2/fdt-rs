@@ -1,6 +1,8 @@
 #[cfg(doc)]
 use super::*;
 
+use crate::prelude::*;
+
 use crate::base::iters::{DevTreeIter, DevTreeNodePropIter};
 use crate::error::DevTreeError;
 

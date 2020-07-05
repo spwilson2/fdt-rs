@@ -8,7 +8,7 @@ pub mod prop;
 pub mod tree;
 
 #[macro_use]
-mod iter_macro;
+pub mod iter_macro;
 
 pub mod iters;
 pub mod parse;

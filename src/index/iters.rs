@@ -96,6 +96,14 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
     }
 }
 
+impl<'a, 'i: 'a, 'dt: 'i> From<DevTreeIndexNodeIter<'a, 'i, 'dt>>
+    for DevTreeIndexPropIter<'a, 'i, 'dt>
+{
+    fn from(iter: DevTreeIndexNodeIter<'a, 'i, 'dt>) -> Self {
+        Self(iter.0)
+    }
+}
+
 /***********************************/
 /***********  Items      ***********/
 /***********************************/
@@ -108,7 +116,10 @@ pub struct DevTreeIndexIter<'a, 'i: 'a, 'dt: 'i> {
     initial_node_returned: bool,
 }
 
-def_common_iter_funcs!($ DevTreeIndexNode<'a, 'i, 'dt>, DevTreeIndexProp<'a, 'i, 'dt>, DevTreeIndexNodeIter, DevTreeIndexPropIter, DevTreeIndexItem);
+impl<'a, 'i: 'a, 'dt:'i> ItemIterator<'a, 'dt, DevTreeIndexItem<'a, 'i, 'dt>> for DevTreeIndexIter<'a, 'i,'dt> {
+    type TreeNodeIter = DevTreeIndexNodeIter<'a, 'i, 'dt>;
+    type TreePropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
+}
 
 impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
     #[inline]
@@ -117,24 +128,6 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         this.initial_node_returned = false;
         this
     }
-
-    fn_next_node!(
-        /// Returns the next [`DevTreeIndexNode`] found in the Device Tree
-    );
-
-    fn_next_prop!(
-        /// Returns the next [`DevTreeIndexProp`] found in the Device Tree (regardless if it occurs on
-        /// a different [`DevTreeIndexNode`]
-    );
-
-    fn_next_node_prop!(
-        /// Returns the next [`DevTreeIndexProp`] on the current node within in the Device Tree
-    );
-
-    fn_find_next_compatible_node!(
-        /// Returns the next [`DevTreeIndexNode`] object with the provided compatible device tree property
-        /// or `None` if none exists.
-    );
 
     #[inline]
     pub fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {

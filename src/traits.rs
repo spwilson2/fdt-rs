@@ -10,9 +10,12 @@ use crate::base::DevTreeProp;
 
 #[doc(hidden)]
 pub trait DevTreePropStateBase<'dt> {
+    type NodeType;
+
     fn propbuf(&self) -> &'dt [u8];
     fn nameoff(&self) -> usize;
     fn fdt(&self) -> &DevTree<'dt>;
+    fn node(&self) -> Self::NodeType;
 }
 
 pub trait IterableDevTree<'a, 'dt:'a> {

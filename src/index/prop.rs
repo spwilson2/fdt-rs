@@ -21,13 +21,12 @@ impl<'r, 'a: 'r, 'i: 'a, 'dt: 'i> DevTreeIndexProp<'a, 'i, 'dt> {
     ) -> Self {
         Self { index, node, prop }
     }
-    pub fn node(&self) -> DevTreeIndexNode<'a, 'i, 'dt> {
-        DevTreeIndexNode::new(self.index, self.node)
-    }
 }
 
 impl<'a, 'i: 'a, 'dt: 'i> DevTreePropState<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {}
 impl<'a, 'i: 'a, 'dt: 'i> DevTreePropStateBase<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
+    type NodeType = DevTreeIndexNode<'a, 'i, 'dt>;
+
     #[inline]
     fn propbuf(&self) -> &'dt [u8] {
         self.prop.propbuf
@@ -41,6 +40,10 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreePropStateBase<'dt> for DevTreeIndexProp<'a, 'i,
     #[inline]
     fn fdt(&self) -> &DevTree<'dt> {
         &self.index.fdt()
+    }
+
+    fn node(&self) -> DevTreeIndexNode<'a, 'i, 'dt> {
+        DevTreeIndexNode::new(self.index, self.node)
     }
 }
 

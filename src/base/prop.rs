@@ -12,6 +12,8 @@ pub struct DevTreeProp<'a, 'dt:'a> {
 
 impl<'r, 'dt: 'r> DevTreePropState<'dt> for DevTreeProp<'r, 'dt> {}
 impl<'r, 'dt: 'r> DevTreePropStateBase<'dt> for DevTreeProp<'r, 'dt> {
+    type NodeType = DevTreeNode<'r, 'dt>;
+
     #[inline]
     fn propbuf(&self) -> &'dt [u8] {
         self.propbuf
@@ -26,15 +28,16 @@ impl<'r, 'dt: 'r> DevTreePropStateBase<'dt> for DevTreeProp<'r, 'dt> {
     fn fdt(&self) -> &DevTree<'dt> {
         self.parent_iter.fdt
     }
-}
 
-impl<'a, 'dt:'a> DevTreeProp<'a, 'dt> {
     /// Returns the node which this property is attached to
     #[inline]
     #[must_use]
-    pub fn node(&self) -> DevTreeNode<'a, 'dt> {
+    fn node(&self) -> DevTreeNode<'r, 'dt> {
         self.parent_iter.clone().next_node().unwrap()
     }
+}
+
+impl<'a, 'dt:'a> DevTreeProp<'a, 'dt> {
 
     pub(super) fn new(parent_iter: DevTreeIter<'a, 'dt>, propbuf: &'dt [u8], nameoff: usize) -> Self {
         Self {

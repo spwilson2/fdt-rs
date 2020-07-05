@@ -72,8 +72,13 @@ pub struct DevTreeIter<'a, 'dt:'a> {
     pub(crate) fdt: &'a DevTree<'dt>,
 }
 
-def_common_iter_funcs!($ DevTreeNode<'a, 'dt>, DevTreeProp<'a, 'dt>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
+//def_common_iter_funcs!($ DevTreeNode<'a, 'dt>, DevTreeProp<'a, 'dt>, DevTreeNodeIter, DevTreePropIter, DevTreeItem);
+use crate::base::item::UnwrappableDevTreeItem;
 
+impl<'a, 'dt> ItemIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
+    type TreeNodeIter = DevTreeNodeIter<'a, 'dt>;
+    type TreePropIter = DevTreePropIter<'a, 'dt>;
+}
 impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
     pub fn new(fdt: &'a DevTree<'dt>) -> Self {
         Self {
@@ -94,29 +99,20 @@ impl<'a, 'dt:'a> DevTreeIter<'a, 'dt> {
         }
     }
 
-    fn_next_node!(
-        /// Returns the next [`DevTreeNode`] found in the Device Tree
-    );
-
-    fn_next_prop!(
-        /// Returns the next [`DevTreeProp`] found in the [`DevTree`]. This property may be on
-        /// a different [`DevTreeNode`] than the previous property.
-        ///
-        /// (See [`next_node_prop`] if a property should be returned only if it exists on this
-        /// node.)
-        ///
-        /// [`next_node_prop`]: #DevTreeIter::next_node_prop
-    );
-
-    fn_next_node_prop!(
-        /// Returns the next [`DevTreeProp`] of the current [`DevTreeNode`] or `None` if
-        /// the node does not have any more properties.
-    );
-
-    fn_find_next_compatible_node!(
-        /// Returns the next [`DevTreeNode`] object with the provided compatible device tree property
-        /// or [`Option::None`] if none exists.
-    );
+    pub fn next_prop(&mut self) -> Option<DevTreeProp<'a, 'dt>> {
+        loop {
+            match self.next() {
+                Some(item) => {
+                    if let Some(prop) = item.prop() {
+                        return Some(prop)
+                    }
+                    // Continue if a new node.
+                    continue
+                },
+                _ => return None,
+            }
+        }
+    }
 
     fn next_devtree_item(&mut self) -> Option<DevTreeItem<'a, 'dt>> {
         loop {
@@ -196,6 +192,11 @@ impl<'a, 'dt:'a> Iterator for DevTreePropIter<'a, 'dt> {
 impl<'a, 'dt:'a> From<DevTreeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
     fn from(iter: DevTreeIter<'a, 'dt>) -> Self {
         Self(iter)
+    }
+}
+impl<'a, 'dt:'a> From<DevTreeNodeIter<'a, 'dt>> for DevTreePropIter<'a, 'dt> {
+    fn from(iter: DevTreeNodeIter<'a, 'dt>) -> Self {
+        Self(iter.0)
     }
 }
 

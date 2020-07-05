@@ -318,6 +318,7 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         &self.fdt
     }
 }
+
 impl<'a, 'i: 'a, 'dt: 'i> IterableDevTree<'a, 'dt> for DevTreeIndex<'i, 'dt> {
     type TreeNode = DevTreeIndexNode<'a, 'i, 'dt>;
     type TreeIter = DevTreeIndexIter<'a, 'i, 'dt>;
