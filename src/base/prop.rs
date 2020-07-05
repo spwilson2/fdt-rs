@@ -10,20 +10,20 @@ pub struct DevTreeProp<'a, 'dt:'a> {
     nameoff: usize,
 }
 
-impl<'r, 'dt: 'r> DevTreePropState<'r, 'dt> for DevTreeProp<'r, 'dt> {}
-impl<'r, 'dt: 'r> DevTreePropStateBase<'r, 'dt> for DevTreeProp<'r, 'dt> {
+impl<'r, 'dt: 'r> DevTreePropState<'dt> for DevTreeProp<'r, 'dt> {}
+impl<'r, 'dt: 'r> DevTreePropStateBase<'dt> for DevTreeProp<'r, 'dt> {
     #[inline]
-    fn propbuf(&'r self) -> &'dt [u8] {
+    fn propbuf(&self) -> &'dt [u8] {
         self.propbuf
     }
 
     #[inline]
-    fn nameoff(&'r self) -> usize {
+    fn nameoff(&self) -> usize {
         self.nameoff
     }
 
     #[inline]
-    fn fdt(&'r self) -> &'r DevTree<'dt> {
+    fn fdt(&self) -> &DevTree<'dt> {
         self.parent_iter.fdt
     }
 }

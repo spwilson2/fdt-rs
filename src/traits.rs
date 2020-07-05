@@ -9,10 +9,10 @@ use crate::spec::Phandle;
 use crate::base::DevTreeProp;
 
 #[doc(hidden)]
-pub trait DevTreePropStateBase<'r, 'dt: 'r> {
-    fn propbuf(&'r self) -> &'dt [u8];
-    fn nameoff(&'r self) -> usize;
-    fn fdt(&'r self) -> &'r DevTree<'dt>;
+pub trait DevTreePropStateBase<'dt> {
+    fn propbuf(&self) -> &'dt [u8];
+    fn nameoff(&self) -> usize;
+    fn fdt(&self) -> &DevTree<'dt>;
 }
 
 pub trait IterableDevTree<'a, 'dt:'a> {
@@ -33,17 +33,17 @@ pub trait IterableDevTree<'a, 'dt:'a> {
     fn root(&'a self) -> Option<Self::TreeNode>;
 }
 
-pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
+pub trait DevTreePropState<'dt>: DevTreePropStateBase<'dt> {
     /// Returns the name of the property within the device tree.
     #[inline]
-    fn name(&'r self) -> Result<&'r str, DevTreeError> {
+    fn name(&self) -> Result<&'dt str, DevTreeError> {
         PropTraitWrap(self).get_prop_str()
     }
 
     /// Returns the length of the property value within the device tree
     #[inline]
     #[must_use]
-    fn length(&'r self) -> usize {
+    fn length(&self) -> usize {
         self.propbuf().len()
     }
 
@@ -63,7 +63,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// This method will *not* panic.
     #[inline]
-    unsafe fn get_u32(&'r self, offset: usize) -> Result<u32, DevTreeError> {
+    unsafe fn get_u32(&self, offset: usize) -> Result<u32, DevTreeError> {
         self.propbuf()
             .read_be_u32(offset)
             .or(Err(DevTreeError::InvalidOffset))
@@ -79,7 +79,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_u64(&'r self, offset: usize) -> Result<u64, DevTreeError> {
+    unsafe fn get_u64(&self, offset: usize) -> Result<u64, DevTreeError> {
         self.propbuf()
             .read_be_u64(offset)
             .or(Err(DevTreeError::InvalidOffset))
@@ -92,7 +92,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_phandle(&'r self, offset: usize) -> Result<Phandle, DevTreeError> {
+    unsafe fn get_phandle(&self, offset: usize) -> Result<Phandle, DevTreeError> {
         self.propbuf()
             .read_be_u32(offset)
             .or(Err(DevTreeError::InvalidOffset))
@@ -103,7 +103,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_str(&'dt self) -> Result<&'dt str, DevTreeError> {
+    unsafe fn get_str(&self) -> Result<&'dt str, DevTreeError> {
         self.get_str_at(0)
     }
 
@@ -112,7 +112,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_str_at(&'dt self, offset: usize) -> Result<&'dt str, DevTreeError> {
+    unsafe fn get_str_at(&self, offset: usize) -> Result<&'dt str, DevTreeError> {
         match PropTraitWrap(self).get_string(offset, true) {
             // Note, unwrap invariant is safe.
             // get_string returns Some(s) when second opt is true
@@ -125,7 +125,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_str_count(&'dt self) -> Result<usize, DevTreeError> {
+    unsafe fn get_str_count(&self) -> Result<usize, DevTreeError> {
         PropTraitWrap(self).iter_str_list(None)
     }
 
@@ -166,7 +166,7 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_strlist(&'dt self, list: &mut [Option<&'dt str>]) -> Result<usize, DevTreeError> {
+    unsafe fn get_strlist(&self, list: &mut [Option<&'dt str>]) -> Result<usize, DevTreeError> {
         PropTraitWrap(self).iter_str_list(Some(list))
     }
 
@@ -174,15 +174,15 @@ pub trait DevTreePropState<'r, 'dt: 'r>: DevTreePropStateBase<'r, 'dt> {
     ///
     /// See the safety note of [`DevTreePropState::get_u32`]
     #[inline]
-    unsafe fn get_raw(&'r self) -> &'r [u8] {
+    unsafe fn get_raw(&self) -> &'dt [u8] {
         self.propbuf()
     }
 }
 
 struct PropTraitWrap<'r, T: ?Sized>(&'r T);
 
-impl<'r, 'dt: 'r, T: DevTreePropState<'r, 'dt> + ?Sized> PropTraitWrap<'r, T> {
-    fn get_prop_str(&self) -> Result<&'r str, DevTreeError> {
+impl<'r, 'dt: 'r, T: DevTreePropState<'dt> + ?Sized> PropTraitWrap<'r, T> {
+    fn get_prop_str(&self) -> Result<&'dt str, DevTreeError> {
         unsafe {
             let str_offset = self.0.fdt().off_dt_strings() + self.0.nameoff();
             let name = self.0.fdt().buf().read_bstring0(str_offset)?;

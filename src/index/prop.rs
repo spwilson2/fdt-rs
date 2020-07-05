@@ -26,20 +26,20 @@ impl<'r, 'a: 'r, 'i: 'a, 'dt: 'i> DevTreeIndexProp<'a, 'i, 'dt> {
     }
 }
 
-impl<'r, 'a: 'r, 'i: 'a, 'dt: 'i> DevTreePropState<'r, 'dt> for DevTreeIndexProp<'a, 'i, 'dt> {}
-impl<'r, 'a: 'r, 'i: 'a, 'dt: 'i> DevTreePropStateBase<'r, 'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
+impl<'a, 'i: 'a, 'dt: 'i> DevTreePropState<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {}
+impl<'a, 'i: 'a, 'dt: 'i> DevTreePropStateBase<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
     #[inline]
-    fn propbuf(&'r self) -> &'dt [u8] {
+    fn propbuf(&self) -> &'dt [u8] {
         self.prop.propbuf
     }
 
     #[inline]
-    fn nameoff(&'r self) -> usize {
+    fn nameoff(&self) -> usize {
         self.prop.nameoff
     }
 
     #[inline]
-    fn fdt(&'r self) -> &'r DevTree<'dt> {
+    fn fdt(&self) -> &DevTree<'dt> {
         &self.index.fdt()
     }
 }
