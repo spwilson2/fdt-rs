@@ -1,4 +1,4 @@
-//! Low level flattened device tree parsing.
+//! Low level flattened device tree parsing functions.
 //!
 
 use core::mem::size_of;
@@ -12,8 +12,21 @@ use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_prop_header, FdtTok, MAX_NODE_NAME_LEN};
 
+/// This function implements the logic to tokenize the device tree's main structure block.
+///
+/// This function will return the next [`ParsedTok`] if one exists. If it succeeds in parsing
+/// a token, `off` will be incremented to the start of the next token within `buf`.
+///
 /// # Safety
-/// TODO
+///
+/// 1. The provided buffer must contain a device tree structure block.
+///
+/// 2. The given offset into the buffer, `off`, must be u32 aligned.
+///
+///    If this function returns `Ok(Some(_))`, the offset is guaranteed to be u32 aligned.  This
+///    means that as long as this function is initially called with an aligned offset, this
+///    function may be iteratively called without checking the offset's alignment again.
+///
 pub unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
     off: &mut usize,
@@ -39,20 +52,25 @@ pub unsafe fn next_devtree_token<'a>(
             Ok(Some(ParsedTok::BeginNode(ParsedBeginNode { name })))
         }
         Some(FdtTok::Prop) => {
+            // Get the memory we'll use as the header
+            let header_slice = buf
+                .get(*off..*off + size_of::<fdt_prop_header>())
+                .ok_or(DevTreeError::ParseError)?;
             // Re-interpret the data as a fdt_header.
             //
-            // Allow lint because we always move the pointer in u32 increments.
-            // Casting up from u8 alignment to u32 alignmnet is safe.
+            // We already checked length. 
+            // We statically verify alignment by ensuring pointer alignment matches known u32 alignment.
             assert_eq_align!(fdt_prop_header, u32);
             #[allow(clippy::cast_ptr_alignment)]
-            let header = &*(&buf[*off] as *const u8 as *const fdt_prop_header);
-            // Get length from header
+            let header = &*(header_slice.as_ptr() as *const fdt_prop_header);
             let prop_len = u32::from(header.len) as usize;
 
-            // Move past the header to the data;
+            // Move offset past prop header
             *off += size_of::<fdt_prop_header>();
             // Create a slice using the offset
-            let prop_buf = &buf[*off..*off + prop_len];
+            let prop_buf = buf.get(*off..*off + prop_len)
+                .ok_or(DevTreeError::ParseError)?;
+
             // Move the offset past the prop data.
             *off += prop_buf.len();
             // Align back to u32.
@@ -88,6 +106,7 @@ pub struct ParsedProp<'a> {
     pub name_offset: usize,
 }
 
+/// Enumeration of all tokens within a device tree's structure block.
 pub enum ParsedTok<'a> {
     BeginNode(ParsedBeginNode<'a>),
     EndNode,
