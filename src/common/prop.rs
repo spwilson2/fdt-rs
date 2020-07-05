@@ -123,7 +123,7 @@ pub trait PropReader<'dt>: PropReaderBase<'dt> {
     ///
     /// If an error occurred parsing one or more of the strings (E.g. they were not valid
     /// UTF-8/ASCII strings) an [`Err`] of type [`DevTreeError`] will be returned.
-    /// 
+    ///
     /// TODO Example
     /// # Safety
     ///

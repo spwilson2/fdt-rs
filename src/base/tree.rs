@@ -10,7 +10,10 @@ use crate::error::DevTreeError;
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_header, FDT_MAGIC};
 
-use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreePropIter, DevTreeReserveEntryIter, DevTreeCompatibleNodeIter};
+use super::iters::{
+    DevTreeCompatibleNodeIter, DevTreeIter, DevTreeNodeIter, DevTreePropIter,
+    DevTreeReserveEntryIter,
+};
 use super::DevTreeNode;
 
 const fn is_aligned<T>(offset: usize) -> bool {

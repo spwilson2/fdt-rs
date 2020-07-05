@@ -25,8 +25,8 @@
 //! let layout = DevTreeIndex::get_layout(&devtree)
 //!     .expect("Failed to parse DTB - it is invalid.");
 //!
-//! // Allocate memory for the index.  
-//! // 
+//! // Allocate memory for the index.
+//! //
 //! // This could be performed without a dynamic allocation
 //! // if we allocated a static buffer or want to provide a
 //! // raw buffer into uninitialized memory.

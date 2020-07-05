@@ -1,5 +1,5 @@
 //! Base device tree parsing utils.
-//!
+
 #[doc(hidden)]
 pub mod item;
 #[doc(hidden)]

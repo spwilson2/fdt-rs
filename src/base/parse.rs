@@ -31,7 +31,7 @@ pub unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
     off: &mut usize,
 ) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
-    // These are guarunteed.
+    // These are guaranteed.
     // We only produce associated offsets that are aligned to 32 bits and within the buffer.
     debug_assert!(buf.as_ptr().add(*off) as usize % size_of::<u32>() == 0);
     debug_assert!(buf.len() > (*off + size_of::<u32>()));
@@ -58,7 +58,7 @@ pub unsafe fn next_devtree_token<'a>(
                 .ok_or(DevTreeError::ParseError)?;
             // Re-interpret the data as a fdt_header.
             //
-            // We already checked length. 
+            // We already checked length.
             // We statically verify alignment by ensuring pointer alignment matches known u32 alignment.
             assert_eq_align!(fdt_prop_header, u32);
             #[allow(clippy::cast_ptr_alignment)]
@@ -68,7 +68,8 @@ pub unsafe fn next_devtree_token<'a>(
             // Move offset past prop header
             *off += size_of::<fdt_prop_header>();
             // Create a slice using the offset
-            let prop_buf = buf.get(*off..*off + prop_len)
+            let prop_buf = buf
+                .get(*off..*off + prop_len)
                 .ok_or(DevTreeError::ParseError)?;
 
             // Move the offset past the prop data.

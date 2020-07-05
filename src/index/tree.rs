@@ -5,7 +5,9 @@ use core::ptr::null_mut;
 
 use crate::prelude::*;
 
-use super::iters::{DevTreeIndexCompatibleNodeIter, DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter};
+use super::iters::{
+    DevTreeIndexCompatibleNodeIter, DevTreeIndexIter, DevTreeIndexNodeIter, DevTreeIndexPropIter,
+};
 use super::DevTreeIndexNode;
 use crate::base::item::DevTreeItem;
 use crate::base::iters::DevTreeIter;
@@ -13,22 +15,15 @@ use crate::base::parse::{DevTreeParseIter, ParsedBeginNode, ParsedProp, ParsedTo
 use crate::base::DevTree;
 use crate::error::DevTreeError;
 
-unsafe fn ptr_in<T>(buf: &[u8], ptr: *const T) -> bool {
-    // Make sure we dont' go over the buffer
-    let mut res = buf.as_ptr() as usize + buf.len() > (ptr as usize + size_of::<T>());
-    // Make sure we don't go under the buffer
-    res &= buf.as_ptr() as usize <= ptr as usize;
-    res
-}
-
-unsafe fn aligned_ptr_in<T>(buf: &[u8], offset: usize) -> Result<*mut T, DevTreeError> {
+unsafe fn aligned_ptr_in<T>(buf: &mut [u8], offset: usize) -> Result<*mut T, DevTreeError> {
+    // Get the aligned offset
     let ptr = buf.as_ptr().add(offset);
+    let aligned_offset = offset + ptr.align_offset(align_of::<T>());
 
-    let ptr = ptr.add(ptr.align_offset(align_of::<T>())) as *mut T;
-    if !ptr_in(buf, ptr) {
-        return Err(DevTreeError::NotEnoughMemory);
-    }
-    Ok(ptr)
+    let t_slice_ref = buf
+        .get_mut(aligned_offset..aligned_offset + size_of::<T>())
+        .ok_or(DevTreeError::NotEnoughMemory)?;
+    Ok(t_slice_ref.as_mut_ptr() as *mut T)
 }
 
 pub(super) struct DTIProp<'dt> {

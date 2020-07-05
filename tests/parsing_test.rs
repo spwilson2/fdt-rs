@@ -119,22 +119,23 @@ fn node_prop_iter() {
 }
 
 #[test]
-fn find_first_compatible_works_on_initial_node() {
+fn next_compatible_finds_initial_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt.find_first_compatible_node("riscv-virtio").unwrap();
+        let node = fdt.compatible_nodes("riscv-virtio").next().unwrap();
         assert!(node.name().unwrap() == ""); // Root node has no "name"
     }
 }
 
 #[test]
-fn find_first_compatible_works_on_final_node() {
+fn next_compatible_finds_final_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt.find_first_compatible_node("riscv,clint0").unwrap();
+        let node = fdt.compatible_nodes("riscv,clint0").next().unwrap();
         assert!(node.name().unwrap() == "clint@2000000");
     }
 }
+
 #[test]
 fn find_all_compatible() {
     unsafe {
@@ -245,8 +246,8 @@ fn benchmark(c: &mut Criterion) {
 
     group
         .significance_level(0.01)
-        .sample_size(1000)
-        .measurement_time(core::time::Duration::new(30, 0));
+        .sample_size(100)
+        .measurement_time(core::time::Duration::new(10, 0));
 
     let idx = get_fdt_index();
 

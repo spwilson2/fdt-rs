@@ -36,8 +36,13 @@ pub type DevTreeIndexNodeIter<'a, 'i, 'dt> =
 pub type DevTreeIndexPropIter<'a, 'i, 'dt> =
     TreePropIter<'a, 'dt, DevTreeIndexIter<'a, 'i, 'dt>, DevTreeIndexItem<'a, 'i, 'dt>>;
 
-pub type DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> =
-    TreeCompatibleNodeIter<'s, 'a, 'dt, DevTreeIndexIter<'a, 'i, 'dt>, DevTreeIndexItem<'a, 'i, 'dt>>;
+pub type DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> = TreeCompatibleNodeIter<
+    's,
+    'a,
+    'dt,
+    DevTreeIndexIter<'a, 'i, 'dt>,
+    DevTreeIndexItem<'a, 'i, 'dt>,
+>;
 
 /***********************************/
 /***********  Items      ***********/

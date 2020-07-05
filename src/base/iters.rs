@@ -1,5 +1,4 @@
-//! This module provides a collection of iterative parsers of the buf provided to initialize
-//! a [`DevTree`].
+//! Iterative parsers of a [`DevTree`].
 use core::mem::size_of;
 use core::num::NonZeroUsize;
 use core::str::from_utf8;
@@ -7,8 +6,8 @@ use core::str::from_utf8;
 use crate::prelude::*;
 
 use crate::base::parse::{next_devtree_token, ParsedTok};
-use crate::common::iter::{TreeCompatibleNodeIter, TreeNodeIter, TreeNodePropIter, TreePropIter};
 use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
+use crate::common::iter::{TreeCompatibleNodeIter, TreeNodeIter, TreeNodePropIter, TreePropIter};
 use crate::error::DevTreeError;
 use crate::spec::fdt_reserve_entry;
 
@@ -74,8 +73,7 @@ pub struct DevTreeIter<'a, 'dt: 'a> {
     pub(crate) fdt: &'a DevTree<'dt>,
 }
 
-impl<'a, 'dt: 'a> TreeIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
-}
+impl<'a, 'dt: 'a> TreeIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {}
 
 impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
     pub fn new(fdt: &'a DevTree<'dt>) -> Self {
@@ -94,21 +92,6 @@ impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
                 offset: offset.get(),
             }),
             None => None,
-        }
-    }
-
-    pub fn next_prop(&mut self) -> Option<DevTreeProp<'a, 'dt>> {
-        loop {
-            match self.next() {
-                Some(item) => {
-                    if let Some(prop) = item.prop() {
-                        return Some(prop);
-                    }
-                    // Continue if a new node.
-                    continue;
-                }
-                _ => return None,
-            }
         }
     }
 
