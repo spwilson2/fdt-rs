@@ -29,7 +29,6 @@ impl<'r, 'dt: 'r> PropReaderBase<'dt> for DevTreeProp<'r, 'dt> {
     }
 
     /// Returns the node which this property is attached to
-    #[inline]
     #[must_use]
     fn node(&self) -> DevTreeNode<'r, 'dt> {
         self.parent_iter.clone().next_node().unwrap()

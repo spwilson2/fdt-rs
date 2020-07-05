@@ -21,7 +21,6 @@ impl<'a, 'dt: 'a> DevTreeNode<'a, 'dt> {
     }
 
     /// Returns an iterator over this node's children [`DevTreeProp`]
-    #[inline]
     #[must_use]
     pub fn props(&'a self) -> DevTreeNodePropIter<'a, 'dt> {
         DevTreeNodePropIter::new(self)
@@ -36,8 +35,7 @@ impl<'a, 'dt: 'a> DevTreeNode<'a, 'dt> {
     /// and prints each node's name.
     ///
     /// TODO
-    #[inline]
     pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a, 'dt>> {
-        self.parse_iter.find_next_compatible_node(string)
+        self.parse_iter.clone().next_compatible_node(string)
     }
 }

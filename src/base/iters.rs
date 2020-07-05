@@ -74,8 +74,6 @@ pub struct DevTreeIter<'a, 'dt: 'a> {
 }
 
 impl<'a, 'dt: 'a> TreeIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {
-    type TreeNodeIter = DevTreeNodeIter<'a, 'dt>;
-    type TreePropIter = DevTreePropIter<'a, 'dt>;
 }
 
 impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
@@ -154,7 +152,6 @@ impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
 impl<'a, 'dt: 'a> Iterator for DevTreeIter<'a, 'dt> {
     type Item = DevTreeItem<'a, 'dt>;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.next_devtree_item()
     }

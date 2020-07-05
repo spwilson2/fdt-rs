@@ -112,7 +112,6 @@ impl<'r, 'dt: 'r> DevTreeParseIter<'r, 'dt> {
 impl<'dt, 'a: 'dt> Iterator for DevTreeParseIter<'dt, 'a> {
     type Item = ParsedTok<'a>;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         // Safe because we're passing an unmodified (by us) offset.
         // next_devtree_token guaruntees alignment and out-of-bounds won't occur.

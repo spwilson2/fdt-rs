@@ -307,7 +307,6 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         Ok(this)
     }
 
-    #[inline]
     pub fn root(&self) -> DevTreeIndexNode<'_, 'i, 'dt> {
         // Unsafe OK. The root node always exits.
         unsafe { DevTreeIndexNode::new(self, &*self.root) }
@@ -325,7 +324,7 @@ impl<'a, 'i: 'a, 'dt: 'i> IterableDevTree<'a, 'dt> for DevTreeIndex<'i, 'dt> {
     type PropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
 
     /// Returns an iterator over [`DevTreeNode`] objects
-    #[inline]
+    #[must_use]
     fn nodes(&'a self) -> Self::NodeIter {
         Self::NodeIter::from(Self::TreeIter::new(self))
     }
@@ -336,22 +335,21 @@ impl<'a, 'i: 'a, 'dt: 'i> IterableDevTree<'a, 'dt> for DevTreeIndex<'i, 'dt> {
     }
 
     /// Returns an iterator over objects within the [`DevTreeItem`] enum
-    #[inline]
+    #[must_use]
     fn items(&'a self) -> Self::TreeIter {
         Self::TreeIter::new(self)
     }
 
-    #[inline]
     fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode> {
-        self.items().find_next_compatible_node(string)
+        self.items().next_compatible_node(string)
     }
 
-    #[inline]
+    #[must_use]
     fn buf(&'a self) -> &'dt [u8] {
         self.fdt.buf()
     }
 
-    #[inline]
+    #[must_use]
     fn root(&'a self) -> Option<Self::TreeNode> {
         Some(self.root())
     }

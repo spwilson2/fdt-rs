@@ -13,12 +13,10 @@ use crate::spec::{fdt_header, FDT_MAGIC};
 use super::iters::{DevTreeIter, DevTreeNodeIter, DevTreePropIter, DevTreeReserveEntryIter};
 use super::DevTreeNode;
 
-#[inline]
 const fn is_aligned<T>(offset: usize) -> bool {
     offset % size_of::<T>() == 0
 }
 
-#[inline]
 const fn verify_offset_aligned<T>(offset: usize) -> Result<usize, DevTreeError> {
     let i: [Result<usize, DevTreeError>; 2] = [Err(DevTreeError::ParseError), Ok(offset)];
     i[is_aligned::<T>(offset) as usize]
@@ -152,7 +150,6 @@ impl<'dt> DevTree<'dt> {
     /// will verify that enough space to fit type T remains within the buffer.
     ///
     /// The caller must verify that the pointer is not misaligned before it is dereferenced.
-    #[inline]
     pub(crate) unsafe fn ptr_at<T>(&self, offset: usize) -> Result<*const T, DevTreeError> {
         if offset + size_of::<T>() > self.buf.len() {
             Err(DevTreeError::InvalidOffset)
@@ -162,7 +159,6 @@ impl<'dt> DevTree<'dt> {
     }
 
     /// Returns an iterator over the Dev Tree "5.3 Memory Reservation Blocks"
-    #[inline]
     #[must_use]
     pub fn reserved_entries(&self) -> DevTreeReserveEntryIter {
         DevTreeReserveEntryIter::new(self)
@@ -176,7 +172,6 @@ impl<'a, 'dt: 'a> IterableDevTree<'a, 'dt> for DevTree<'dt> {
     type PropIter = DevTreePropIter<'a, 'dt>;
 
     /// Returns an iterator over [`DevTreeNode`] objects
-    #[inline]
     fn nodes(&'a self) -> Self::NodeIter {
         DevTreeNodeIter::from(DevTreeIter::new(self))
     }
@@ -187,25 +182,21 @@ impl<'a, 'dt: 'a> IterableDevTree<'a, 'dt> for DevTree<'dt> {
     }
 
     /// Returns an iterator over objects within the [`DevTreeItem`] enum
-    #[inline]
     fn items(&'a self) -> Self::TreeIter {
         DevTreeIter::new(self)
     }
 
     /// Returns the first [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
-    #[inline]
     fn find_first_compatible_node(&'a self, string: &str) -> Option<Self::TreeNode> {
-        self.items().find_next_compatible_node(string)
+        self.items().next_compatible_node(string)
     }
 
-    #[inline]
     fn buf(&'a self) -> &'dt [u8] {
         self.buf
     }
 
     /// Returns the root [`DevTreeNode`] object of the device tree (if it exists).
-    #[inline]
     fn root(&self) -> Option<DevTreeNode<'_, 'dt>> {
         self.nodes().next()
     }

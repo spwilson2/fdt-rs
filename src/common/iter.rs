@@ -22,8 +22,6 @@ pub trait TreeIterator<'r, 'dt: 'r, I>: Clone + Iterator<Item = I>
 where
     I: UnwrappableDevTreeItem<'dt>,
 {
-    type TreeNodeIter: From<Self> + Into<Self> + Iterator<Item = I::TreeNode>;
-    type TreePropIter: From<Self> + Iterator<Item = I::TreeProp>;
 
     fn next_prop(&mut self) -> Option<I::TreeProp> {
         loop {
@@ -63,29 +61,22 @@ where
         }
     }
 
-    fn find_next_compatible_node(
-        &self,
+    fn next_compatible_node(
+        &mut self,
         string: &str,
     ) -> Option<<I::TreeProp as PropReaderBase<'dt>>::NodeType> {
-        // Create a clone and turn it into a node iterator
-        let mut node_iter = Self::TreeNodeIter::from(self.clone());
-
         // If there is another node, advance our iterator to that node.
-        node_iter.next().and_then(|_| {
+        self.next_node().and_then(|_| {
             // Iterate through all remaining properties in the tree looking for the compatible
             // string.
-            let mut iter = Self::TreePropIter::from(node_iter.into());
-            iter.find_map(|prop| unsafe {
-                // Verify that the compatible prop matches
-                if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
-                    return Some(prop);
+            while let Some(prop) = self.next_prop() {
+                unsafe {
+                    if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
+                        return Some(prop.node())
+                    }
                 }
-                None
-            })
-            .and_then(|compatible_prop| {
-                // If we found a compatible property match, return the node.
-                return Some(compatible_prop.node());
-            })
+            }
+            None
         })
     }
 }

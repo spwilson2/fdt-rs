@@ -41,27 +41,22 @@ macro_rules! be_read {
 }
 
 impl<'a> SliceRead<'a> for &'a [u8] {
-    #[inline]
     unsafe fn unsafe_read_be_u32(&self, pos: usize) -> SliceReadResult<u32> {
         unchecked_be_read!(self, u32, pos)
     }
 
-    #[inline]
     unsafe fn unsafe_read_be_u64(&self, pos: usize) -> SliceReadResult<u64> {
         unchecked_be_read!(self, u64, pos)
     }
 
-    #[inline]
     unsafe fn read_be_u32(&self, pos: usize) -> SliceReadResult<u32> {
         be_read!(self, u32, pos)
     }
 
-    #[inline]
     unsafe fn read_be_u64(&self, pos: usize) -> SliceReadResult<u64> {
         be_read!(self, u64, pos)
     }
 
-    #[inline]
     unsafe fn read_bstring0(&self, pos: usize) -> SliceReadResult<&'a [u8]> {
         for i in pos..self.len() {
             if self[i] == 0 {
@@ -71,7 +66,6 @@ impl<'a> SliceRead<'a> for &'a [u8] {
         Err(SliceReadError::UnexpectedEndOfInput)
     }
 
-    #[inline]
     unsafe fn nread_bstring0(&self, pos: usize, len: usize) -> SliceReadResult<&'a [u8]> {
         let end = core::cmp::min(len + pos, self.len());
         for i in pos..end {

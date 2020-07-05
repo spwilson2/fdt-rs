@@ -12,6 +12,7 @@ pub enum DevTreeItem<'a, 'dt: 'a> {
 impl<'a, 'dt: 'a> UnwrappableDevTreeItem<'dt> for DevTreeItem<'a, 'dt> {
     type TreeNode = DevTreeNode<'a, 'dt>;
     type TreeProp = DevTreeProp<'a, 'dt>;
+
     #[inline]
     fn node(self) -> Option<Self::TreeNode> {
         match self {

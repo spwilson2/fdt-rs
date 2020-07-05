@@ -119,19 +119,15 @@ pub struct DevTreeIndexIter<'a, 'i: 'a, 'dt: 'i> {
 impl<'a, 'i: 'a, 'dt: 'i> TreeIterator<'a, 'dt, DevTreeIndexItem<'a, 'i, 'dt>>
     for DevTreeIndexIter<'a, 'i, 'dt>
 {
-    type TreeNodeIter = DevTreeIndexNodeIter<'a, 'i, 'dt>;
-    type TreePropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
 }
 
 impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
-    #[inline]
     pub(super) fn new(index: &'a DevTreeIndex<'i, 'dt>) -> Self {
         let mut this = Self::from_node(index.root());
         this.initial_node_returned = false;
         this
     }
 
-    #[inline]
     pub fn from_node(node: DevTreeIndexNode<'a, 'i, 'dt>) -> Self {
         Self {
             index: node.index(),
@@ -141,25 +137,15 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         }
     }
 
-    #[inline]
     pub fn next_sibling(&mut self) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
-        self.node.and_then(|node| {
+        self.node.map(|node| {
             let cur = DevTreeIndexNode::new(self.index, node);
             self.node = node.next_sibling();
-            Some(cur)
+            cur
         })
     }
-}
 
-impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
-    type Item = DevTreeIndexItem<'a, 'i, 'dt>;
-
-    // Yes, this is a complex function that would traditionally be questionable to inline.
-    //
-    // We inline this function because callers of this function may completely ignore return
-    // values. Effectively, we want callers to be able to choose if they need a node or a prop.
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_devtree_item(&mut self) -> Option<DevTreeIndexItem<'a, 'i, 'dt>> {
         self.node.and_then(|cur_node| {
             // Check if we've returned the first current node.
             if !self.initial_node_returned {
@@ -187,5 +173,13 @@ impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
             self.node
                 .map(|cur_node| DevTreeIndexItem::Node(DevTreeIndexNode::new(self.index, cur_node)))
         })
+    }
+}
+
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexIter<'a, 'i, 'dt> {
+    type Item = DevTreeIndexItem<'a, 'i, 'dt>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_devtree_item()
     }
 }
