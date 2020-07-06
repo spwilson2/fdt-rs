@@ -9,20 +9,20 @@ use crate::spec::Phandle;
 #[cfg(doc)]
 use crate::base::DevTreeProp;
 
-#[doc(hidden)]
-pub trait PropReaderBase<'dt> {
+pub trait PropReader<'dt> {
     type NodeType;
 
+    /// Returns the buffer associtated with the property's data.
+    #[doc(hidden)]
     fn propbuf(&self) -> &'dt [u8];
+
+    /// Returns offset of this property's name in the device tree buffer.
+    #[doc(hidden)]
     fn nameoff(&self) -> usize;
+
+    #[doc(hidden)]
     fn fdt(&self) -> &DevTree<'dt>;
-    fn node(&self) -> Self::NodeType;
-}
 
-// Automatically define these utility methods for those which implement the base trait
-impl<'dt, T> PropReader<'dt> for T where T: PropReaderBase<'dt> {}
-
-pub trait PropReader<'dt>: PropReaderBase<'dt> {
     /// Returns the name of the property within the device tree.
     #[inline]
     fn name(&self) -> Result<&'dt str, DevTreeError> {
@@ -36,6 +36,9 @@ pub trait PropReader<'dt>: PropReaderBase<'dt> {
         self.propbuf().len()
     }
 
+    /// Returns the node which this property is contained within.
+    fn node(&self) -> Self::NodeType;
+
     /// Read a big-endian [`u32`] from the provided offset in this device tree property's value.
     /// Convert the read value into the machines' native [`u32`] format and return it.
     ///
@@ -47,7 +50,7 @@ pub trait PropReader<'dt>: PropReaderBase<'dt> {
     /// Device Tree Properties are not strongly typed therefore any dereference could return
     /// unexpected data.
     ///
-    /// This method will access memory using [`core::ptr::read_unaligned`], therefore an unaligned
+    /// This method will access memory using [`core::ptr::read_unaligned`]; therefore an unaligned
     /// offset may be provided.
     ///
     /// This method will *not* panic.
@@ -96,7 +99,7 @@ pub trait PropReader<'dt>: PropReaderBase<'dt> {
         self.get_str_at(0)
     }
 
-    /// Returns the string at the given offset within the property.
+    /// Returns the `str` at the given offset within the property.
     /// # Safety
     ///
     /// See the safety note of [`PropReader::get_u32`]
@@ -121,10 +124,35 @@ pub trait PropReader<'dt>: PropReaderBase<'dt> {
     /// Fills the supplied slice of references with [`str`] slices parsed from the given property.
     /// If parsing is successful, the number of parsed strings will be returned.
     ///
-    /// If an error occurred parsing one or more of the strings (E.g. they were not valid
-    /// UTF-8/ASCII strings) an [`Err`] of type [`DevTreeError`] will be returned.
+    /// If an error occurred while parsing one or more of the strings an [`Err`] of type
+    /// [`DevTreeError`] will be returned.
     ///
-    /// TODO Example
+    /// # Example
+    ///
+    /// ```
+    /// # use fdt_rs::doctest::*;
+    /// # let (index, _) = doctest_index();
+    ///
+    /// // Find a node that is a compatible property.
+    /// // (It should have a string value.)
+    /// let compatible_prop = index.props().find(|prop|  {
+    ///     if let Ok(name) = prop.name() {
+    ///         return name == "compatible";
+    ///     }
+    ///     false
+    /// }).unwrap();
+    ///
+    /// let mut str_list: [Option<&str>; 3] = [None; 3];
+    ///
+    /// unsafe {
+    ///     assert_eq!(1, compatible_prop.get_strlist(&mut str_list).unwrap());
+    ///     assert!(str_list[0].is_some());
+    /// }
+    ///
+    ///
+    /// ```
+    ///
+    ///
     /// # Safety
     ///
     /// See the safety note of [`PropReader::get_u32`]
@@ -133,6 +161,8 @@ pub trait PropReader<'dt>: PropReaderBase<'dt> {
         PropTraitWrap(self).iter_str_list(Some(list))
     }
 
+    /// Returns this property's data as a raw slice
+    ///
     /// # Safety
     ///
     /// See the safety note of [`PropReader::get_u32`]

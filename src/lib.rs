@@ -3,9 +3,9 @@
 //!
 //! Includes the following features:
 //!
-//! * [Low-level FDT parsing utilities to build your own parser](base::parse)
+//! * [Low-level FDT parsing utilities to build your own library](base::parse)
 //! * [Simple utilites based on in-order parsing of the FDT](base)
-//! * [Performant utilities built on a no-alloc index](index)
+//! * [Performant utilities which leverage an index built over the FDT](index)
 //!
 //! ## Features
 //!
@@ -48,7 +48,8 @@ pub mod common;
 pub(crate) mod priv_util;
 
 // When the doctest feature is enabled, add these utility functions.
-#[cfg(feature = "doctest")]
+#[cfg(any(feature = "doctest", doc))]
+#[doc(hidden)]
 pub mod doctest {
     pub use crate::base::*;
     pub use crate::index::*;

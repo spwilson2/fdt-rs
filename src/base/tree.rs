@@ -65,9 +65,9 @@ impl<'dt> DevTree<'dt> {
     /// 1. Verify that the slice begins with the magic Device Tree header
     /// 2. Return the reported `totalsize` field of the Device Tree header
     ///
-    /// When one must parse a Flattened Device Tree, it's possible that the actual size of the device
-    /// tree may be unknown. For that reason, this method can be called before constructing the
-    /// [`DevTree`].
+    /// When parsing a FDT, it's possible that the actual size of the device tree may be unknown.
+    /// For that reason, this method can be called before constructing the [`DevTree`]. For this
+    /// read to take place, the provided buffer must be at least [`Self::MIN_HEADER_SIZE`] long.
     ///
     /// Once known, the user should resize the raw byte slice to this function's return value and
     /// pass that slice to [`DevTree::new()`].
@@ -100,10 +100,9 @@ impl<'dt> DevTree<'dt> {
     /// # Safety
     ///
     /// Callers of this method the must guarantee the following:
+    ///
     /// - The passed buffer is 32-bit aligned.
-    /// - The passed buffer is exactly the length returned by `Self::read_totalsize()`
-    ///
-    ///
+    /// - The passed buffer is exactly the length returned by [`Self::read_totalsize()`]
     #[inline]
     pub unsafe fn new(buf: &'dt [u8]) -> Result<Self, DevTreeError> {
         if Self::read_totalsize(buf)? < buf.len() {
@@ -117,7 +116,8 @@ impl<'dt> DevTree<'dt> {
         }
     }
 
-    /// Returns the totalsize field of the Device Tree
+    /// Returns the totalsize field of the Device Tree. This is the number of bytes of the device
+    /// tree structure.
     #[inline]
     #[must_use]
     pub fn totalsize(&self) -> usize {

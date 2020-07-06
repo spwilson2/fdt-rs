@@ -1,7 +1,5 @@
 extern crate fdt_rs;
 
-use core::mem::size_of;
-
 use fdt_rs::base::DevTree;
 use fdt_rs::index::DevTreeIndex;
 use fdt_rs::prelude::*;
@@ -94,7 +92,6 @@ fn node_prop_iter() {
         let blob = DevTree::new(FDT).unwrap();
         for node in blob.nodes() {
             for prop in node.props() {
-                if prop.length() == size_of::<u32>() {}
                 if prop.length() > 0 {
                     if let Ok(i) = prop.get_str_count() {
                         if i == 0 {

@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use core::marker::PhantomData;
 
+// Shared trait for common tree iterators
 pub trait IterableDevTree<'s, 'a, 'dt: 'a> {
     type TreeNode;
     type TreeIter;
@@ -19,6 +20,9 @@ pub trait IterableDevTree<'s, 'a, 'dt: 'a> {
     fn buf(&'a self) -> &'dt [u8];
     fn root(&'a self) -> Option<Self::TreeNode>;
 }
+
+/*************************************/
+/**         Property Iterator       **/
 
 #[derive(Clone)]
 pub struct TreePropIter<'r, 'dt: 'r, II, I>(II, PhantomData<&'dt ()>, PhantomData<&'r I>)
@@ -47,6 +51,9 @@ where
     }
 }
 
+/*************************************/
+/**           Node Iterator         **/
+
 #[derive(Clone)]
 pub struct TreeNodeIter<'r, 'dt: 'r, II, I>(II, PhantomData<&'dt ()>, PhantomData<&'r I>)
 where
@@ -73,6 +80,9 @@ where
         self.0.next_node()
     }
 }
+
+/*************************************/
+/**         Node Prop Iterator      **/
 
 #[derive(Clone)]
 pub struct TreeNodePropIter<'r, 'dt: 'r, II, I>(II, PhantomData<&'dt ()>, PhantomData<&'r I>)
@@ -102,6 +112,9 @@ where
     }
 }
 
+/********************************************/
+/**         Compatible Node Iterator      **/
+
 #[derive(Clone)]
 pub struct TreeCompatibleNodeIter<'s, 'r, 'dt: 'r, II, I>(
     II,
@@ -128,12 +141,15 @@ where
     II: TreeIterator<'r, 'dt, I> + Clone,
     I: UnwrappableDevTreeItem<'dt>,
 {
-    type Item = <I::TreeProp as crate::common::prop::PropReaderBase<'dt>>::NodeType;
+    type Item = <I::TreeProp as crate::common::prop::PropReader<'dt>>::NodeType;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_compatible_node(self.1)
     }
 }
+
+/*********************************************/
+/**     Generic Item Iter Implementation    **/
 
 pub trait TreeIterator<'r, 'dt: 'r, I>: Clone + Iterator<Item = I>
 where
@@ -180,7 +196,7 @@ where
     fn next_compatible_node(
         &mut self,
         string: &str,
-    ) -> Option<<I::TreeProp as PropReaderBase<'dt>>::NodeType> {
+    ) -> Option<<I::TreeProp as PropReader<'dt>>::NodeType> {
         // If there is another node, advance our iterator to that node.
         self.next_node().and_then(|_| {
             // Iterate through all remaining properties in the tree looking for the compatible

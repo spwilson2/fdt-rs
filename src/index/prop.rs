@@ -6,6 +6,9 @@ use crate::base::DevTree;
 use super::tree::{DTINode, DTIProp, DevTreeIndex};
 use super::DevTreeIndexNode;
 
+/// A wrapper around a device tree property within a [`DevTreeIndex`].
+///
+/// Most desired methods are available through the [`PropReader`] trait.
 #[derive(Clone)]
 pub struct DevTreeIndexProp<'a, 'i: 'a, 'dt: 'i> {
     pub index: &'a DevTreeIndex<'i, 'dt>,
@@ -23,7 +26,7 @@ impl<'r, 'a: 'r, 'i: 'a, 'dt: 'i> DevTreeIndexProp<'a, 'i, 'dt> {
     }
 }
 
-impl<'a, 'i: 'a, 'dt: 'i> PropReaderBase<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
+impl<'a, 'i: 'a, 'dt: 'i> PropReader<'dt> for DevTreeIndexProp<'a, 'i, 'dt> {
     type NodeType = DevTreeIndexNode<'a, 'i, 'dt>;
 
     #[inline]

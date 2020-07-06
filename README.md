@@ -31,8 +31,8 @@ default-features = false
 ## Example
 
 The following example stashes a flattened device tree in memory, parses that
-device tree into a `fdt_rs::DevTree` object, searches the device tree for the
-first "ns16550a" compatible node, and if found prints that node's name.
+device tree into a `fdt_rs::DevTree` object, searches the device tree for
+"ns16550a" compatible nodes, and (if found) prints each nodes' name.
 
 ```rust
 extern crate fdt_rs;
@@ -56,9 +56,9 @@ fn main() {
         DevTree::new(buf).unwrap()
     };
 
-    // Find the first "ns16550a" compatible node within the device tree.
-    // If found, print the name of that node (including unit address).
-    if let Some(node) = devtree.find_first_compatible_node("ns16550a") {
+    // Iterate through all "ns16550a" compatible nodes within the device tree.
+    // If found, print the name of each node (including unit address).
+    for node in devtree.compatible_nodes("ns16550a") {
         println!("{}", node.name().unwrap());
     }
 }

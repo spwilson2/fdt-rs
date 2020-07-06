@@ -1,10 +1,27 @@
-//! Performant device tree parsing utils provided using an index.
+//! Performant device tree utils which use an index built over a parsed FDT.
 //!
-//! This module provides advanced Device Tree utilities. These utilites depend on an index built
-//! over a parsed device tree. This index may be built without an allocator. In order to build the
-//! index, only a single `[u8]` buffer is required.
+//! Utilites in this module operate on a [`DevTreeIndex`]. This index provides an efficient to
+//! traverse index of a parsed device tree.
+//!
+//! The index may be built without an allocator. In order to build the index, only a single `[u8]`
+//! buffer is required.
+//!
+//! # Background
+//!
+//! FDT's are a compact binary format; node names, and other information all in a single
+//! datastructure. Utilites which parse this device tree on the fly will run slower than those
+//! which operate on an optimized index. Some operations such as finding a node's parent may
+//! require `O(n^2)` time. To avoid this issue, we provide this module and related utilites.
 //!
 //! # Examples
+//!
+//! The same [`IterableDevTree`] trait used to implement [`DevTree`] methods is also implemented by
+//! the [`DevTreeIndex`]. Therefore [all examples in the base module][crate::base] may also be used
+//! through the [`DevTreeIndex`].
+//!
+//! This module's implementations will be significantly more performant than the base
+//! immplementations.
+//!
 //!
 //! ## Initialization
 //!
@@ -37,26 +54,9 @@
 //! let index = DevTreeIndex::new(devtree, raw_slice).unwrap();
 //!
 //! ```
-//! ## Search
 //!
-//! ```
-//! # use fdt_rs::doctest::*;
-//! # let (index, _) = doctest_index();
-//! // Find a DevTreeIndexNode which has "compatible" = "ns16550a"
-//! let node = index.find_first_compatible_node("ns16550a")
-//!     .expect("No node found!");
-//! ```
-//! ## Iterative Search
-//! ```
-//! # use fdt_rs::doctest::*;
-//! # let (index, _) = doctest_index();
-//!
-//! let mut tree_iter = index.items();
-//!
-//! while let Some(node) = tree_iter.next_compatible_node("virtio,mmio") {
-//! }
-//! ```
-//!
+#[cfg(doc)]
+use crate::doctest::*;
 
 #[doc(hidden)]
 pub mod item;
