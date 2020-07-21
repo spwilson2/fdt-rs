@@ -58,7 +58,8 @@ fn main() {
 
     // Iterate through all "ns16550a" compatible nodes within the device tree.
     // If found, print the name of each node (including unit address).
-    for node in devtree.compatible_nodes("ns16550a") {
+    let mut node_iter = devtree.compatible_nodes("ns16550a");
+    while let Some(node) = node_iter.next().unwrap() {
         println!("{}", node.name().unwrap());
     }
 }
