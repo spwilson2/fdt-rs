@@ -34,7 +34,9 @@ impl<'r, 'dt: 'r> PropReader<'dt> for DevTreeProp<'r, 'dt> {
     #[must_use]
     fn node(&self) -> DevTreeNode<'r, 'dt> {
         unsafe {
-            self.parent_iter.clone().next_node().unsafe_unwrap()
+            // Unsafe unwrap okay. 
+            // We're look back in the tree - our parent node is behind us.
+            self.parent_iter.clone().next_node().unsafe_unwrap().unsafe_unwrap()
         }
     }
 }

@@ -28,6 +28,7 @@ default-features = false
 [dependencies]
 unsafe_unwrap = "0.1.0"
 static_assertions = "1"
+fallible-iterator = "0.2"
 
 [build-dependencies]
 rustc_version = "0.2"

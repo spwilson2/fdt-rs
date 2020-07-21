@@ -4,19 +4,19 @@ use super::*;
 use crate::prelude::*;
 
 use crate::base::iters::{DevTreeIter, DevTreeNodePropIter};
-use crate::error::DevTreeError;
+use crate::error::{Result};
 
 /// A handle to a Device Tree Node within the device tree.
 #[derive(Clone)]
 pub struct DevTreeNode<'a, 'dt: 'a> {
-    pub(super) name: Result<&'dt str, DevTreeError>,
+    pub(super) name: Result<&'dt str>,
     pub(super) parse_iter: DevTreeIter<'a, 'dt>,
 }
 
 impl<'a, 'dt: 'a> DevTreeNode<'a, 'dt> {
     /// Returns the name of the `DevTreeNode` (including unit address tag)
     #[inline]
-    pub fn name(&'a self) -> Result<&'dt str, DevTreeError> {
+    pub fn name(&'a self) -> Result<&'dt str> {
         self.name
     }
 
@@ -35,7 +35,7 @@ impl<'a, 'dt: 'a> DevTreeNode<'a, 'dt> {
     /// and prints each node's name.
     ///
     /// TODO
-    pub fn find_next_compatible_node(&self, string: &str) -> Option<DevTreeNode<'a, 'dt>> {
+    pub fn find_next_compatible_node(&self, string: &str) -> Result<Option<DevTreeNode<'a, 'dt>>> {
         self.parse_iter.clone().next_compatible_node(string)
     }
 }

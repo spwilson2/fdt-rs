@@ -214,18 +214,17 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
             in_node_header: false,
         };
 
-        for tok in iter {
+        while let Some(tok) = iter.next()? {
             match tok {
                 ParsedTok::BeginNode(node) => {
                     builder.parsed_node(&node)?;
                     return Ok(builder);
-                }
+                },
                 ParsedTok::Nop => continue,
-                _ => return Err(DevTreeError::ParseError),
+                _ => break,
             }
         }
-
-        Err(DevTreeError::ParseError)
+        return Err(DevTreeError::ParseError)
     }
 
     pub fn get_layout(fdt: &'i DevTree<'dt>) -> Result<Layout, DevTreeError> {
@@ -248,7 +247,8 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         // + size_of::<DTINode>
         const_assert_eq!(align_of::<DTINode>(), align_of::<DTIProp>());
 
-        for item in DevTreeIter::new(fdt) {
+        let mut iter = DevTreeIter::new(fdt);
+        while let Some(item) = iter.next()? {
             match item {
                 DevTreeItem::Node(_) => size += size_of::<DTINode>(),
                 DevTreeItem::Prop(_) => size += size_of::<DTIProp>(),
@@ -283,8 +283,8 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         //
         // Front will be used as a temporary work section to  build the nodes as we parse them.
         // The back will be used to save completely parsed nodes.
-        for tok in iter {
-            match tok {
+        while let Some(item) = iter.next()? {
+            match item {
                 ParsedTok::BeginNode(node) => {
                     builder.parsed_node(&node)?;
                 }
@@ -297,7 +297,6 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
                 ParsedTok::Nop => continue,
             }
         }
-
         Ok(this)
     }
 

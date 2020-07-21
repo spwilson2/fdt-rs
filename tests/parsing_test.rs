@@ -3,8 +3,22 @@ extern crate fdt_rs;
 use fdt_rs::base::DevTree;
 use fdt_rs::index::DevTreeIndex;
 use fdt_rs::prelude::*;
+use fdt_rs::error::{DevTreeError, Result};
 
 use criterion::{criterion_group, criterion_main, Criterion};
+
+/// Fallible Basic Iterator
+///
+/// A simple wrapper around a normal iterator which will return Ok(Option<I::Item>)
+struct FBI<I: Iterator>(pub I);
+impl<I> FallibleIterator for FBI<I> where I:Iterator {
+    type Item = I::Item;
+    type Error = DevTreeError;
+
+    fn next(&mut self) -> Result<Option<I::Item>> {
+        Ok(self.0.next())
+    }
+}
 
 #[repr(align(4))]
 struct _Wrapper<T>(T);
@@ -79,10 +93,11 @@ fn nodes_iter() {
     unsafe {
         let blob = DevTree::new(FDT).unwrap();
         let iter = blob.nodes();
-        for (node, expected) in iter.clone().zip(DFS_NODES) {
+        let mut pair_iter = iter.clone().zip(FBI(DFS_NODES.iter()));
+        while let Some((node, expected)) = pair_iter.next().unwrap() {
             assert_eq!(node.name().unwrap(), *expected);
         }
-        assert!(iter.count() == DFS_NODES.len());
+        assert!(iter.count().unwrap() == DFS_NODES.len());
     }
 }
 
@@ -90,8 +105,10 @@ fn nodes_iter() {
 fn node_prop_iter() {
     unsafe {
         let blob = DevTree::new(FDT).unwrap();
-        for node in blob.nodes() {
-            for prop in node.props() {
+        let mut node_iter = blob.nodes();
+        while let Some(node) = node_iter.next().unwrap() {
+            let mut prop_iter = node.props();
+            while let Some(prop) = prop_iter.next().unwrap() {
                 if prop.length() > 0 {
                     if let Ok(i) = prop.get_str_count() {
                         if i == 0 {
@@ -119,7 +136,7 @@ fn node_prop_iter() {
 fn next_compatible_finds_initial_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt.compatible_nodes("riscv-virtio").next().unwrap();
+        let node = fdt.compatible_nodes("riscv-virtio").next().unwrap().unwrap();
         assert!(node.name().unwrap() == ""); // Root node has no "name"
     }
 }
@@ -128,7 +145,7 @@ fn next_compatible_finds_initial_node() {
 fn next_compatible_finds_final_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt.compatible_nodes("riscv,clint0").next().unwrap();
+        let node = fdt.compatible_nodes("riscv,clint0").next().unwrap().unwrap();
         assert!(node.name().unwrap() == "clint@2000000");
     }
 }
@@ -142,8 +159,8 @@ fn find_all_compatible() {
         let mut count = 0;
         let exp_count = 8;
 
-        if let Some(mut cur) = devtree.root() {
-            while let Some(node) = cur.find_next_compatible_node(compat) {
+        if let Some(mut cur) = devtree.root().unwrap() {
+            while let Some(node) = cur.find_next_compatible_node(compat).unwrap() {
                 count += 1;
                 // Verify the prefix matches.
                 // (ascii doesn't have startswith)
@@ -232,10 +249,11 @@ pub mod index_tests {
 
 fn test_fdt_dfs<'dt>(idx: &FdtIndex<'dt>) {
     let iter = idx.index.fdt().nodes();
-    for (node, expected) in iter.clone().zip(DFS_NODES) {
+    let mut pair_iter = iter.clone().zip(FBI(DFS_NODES.iter()));
+    while let Some((node, expected)) = pair_iter.next().unwrap() {
         assert_eq!(node.name().unwrap(), *expected);
     }
-    assert!(iter.count() == DFS_NODES.len());
+    assert!(iter.count().unwrap() == DFS_NODES.len());
 }
 
 fn benchmark(c: &mut Criterion) {

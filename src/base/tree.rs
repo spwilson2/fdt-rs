@@ -3,10 +3,12 @@ use crate::base::*;
 
 use core::mem::size_of;
 
-use crate::error::DevTreeError;
+use crate::error::{DevTreeError, Result};
 
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_header, FDT_MAGIC};
+
+use fallible_iterator::FallibleIterator;
 
 use super::iters::{
     DevTreeCompatibleNodeIter, DevTreeIter, DevTreeNodeIter, DevTreePropIter,
@@ -18,8 +20,8 @@ const fn is_aligned<T>(offset: usize) -> bool {
     offset % size_of::<T>() == 0
 }
 
-const fn verify_offset_aligned<T>(offset: usize) -> Result<usize, DevTreeError> {
-    let i: [Result<usize, DevTreeError>; 2] = [Err(DevTreeError::ParseError), Ok(offset)];
+const fn verify_offset_aligned<T>(offset: usize) -> Result<usize> {
+    let i: [Result<usize>; 2] = [Err(DevTreeError::ParseError), Ok(offset)];
     i[is_aligned::<T>(offset) as usize]
 }
 
@@ -50,7 +52,7 @@ impl<'dt> DevTree<'dt> {
     /// The passed byte buffer will be interpreted as a Flattened Device Tree. For this reason this API
     /// is marked unsafe.
     #[inline]
-    pub unsafe fn verify_magic(buf: &[u8]) -> Result<(), DevTreeError> {
+    pub unsafe fn verify_magic(buf: &[u8]) -> Result<()> {
         if get_be32_field!(magic, fdt_header, buf)? != FDT_MAGIC {
             Err(DevTreeError::InvalidMagicNumber)
         } else {
@@ -83,7 +85,7 @@ impl<'dt> DevTree<'dt> {
     /// The passed byte buffer will be interpreted as a Flattened Device Tree. For this reason this API
     /// is marked unsafe.
     #[inline]
-    pub unsafe fn read_totalsize(buf: &[u8]) -> Result<usize, DevTreeError> {
+    pub unsafe fn read_totalsize(buf: &[u8]) -> Result<usize> {
         // Verify provided buffer alignment
         verify_offset_aligned::<u32>(buf.as_ptr() as usize)
             .map_err(|_| DevTreeError::InvalidParamter("Unaligned buffer provided"))?;
@@ -102,7 +104,7 @@ impl<'dt> DevTree<'dt> {
     /// - The passed buffer is 32-bit aligned.
     /// - The passed buffer is exactly the length returned by [`Self::read_totalsize()`]
     #[inline]
-    pub unsafe fn new(buf: &'dt [u8]) -> Result<Self, DevTreeError> {
+    pub unsafe fn new(buf: &'dt [u8]) -> Result<Self> {
         if Self::read_totalsize(buf)? < buf.len() {
             Err(DevTreeError::ParseError)
         } else {
@@ -151,7 +153,7 @@ impl<'dt> DevTree<'dt> {
     /// will verify that enough space to fit type T remains within the buffer.
     ///
     /// The caller must verify that the pointer is not misaligned before it is dereferenced.
-    pub(crate) unsafe fn ptr_at<T>(&self, offset: usize) -> Result<*const T, DevTreeError> {
+    pub(crate) unsafe fn ptr_at<T>(&self, offset: usize) -> Result<*const T> {
         if offset + size_of::<T>() > self.buf.len() {
             Err(DevTreeError::InvalidOffset)
         } else {
@@ -191,7 +193,7 @@ impl<'dt> DevTree<'dt> {
     }
 
     /// Returns the root [`DevTreeNode`] object of the device tree (if it exists).
-    pub fn root(&self) -> Option<DevTreeNode<'_, 'dt>> {
+    pub fn root(&self) -> Result<Option<DevTreeNode<'_, 'dt>>> {
         self.nodes().next()
     }
 }

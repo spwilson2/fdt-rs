@@ -35,6 +35,7 @@ extern crate memoffset;
 #[macro_use]
 extern crate static_assertions;
 extern crate unsafe_unwrap;
+extern crate fallible_iterator;
 
 pub mod base;
 pub mod error;

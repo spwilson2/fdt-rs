@@ -8,9 +8,11 @@ use num_traits::FromPrimitive;
 use crate::prelude::*;
 
 use crate::base::DevTree;
-use crate::error::DevTreeError;
+use crate::error::{Result, DevTreeError};
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_prop_header, FdtTok, MAX_NODE_NAME_LEN};
+
+use fallible_iterator::FallibleIterator;
 
 /// This function implements the logic to tokenize the device tree's main structure block.
 ///
@@ -30,7 +32,7 @@ use crate::spec::{fdt_prop_header, FdtTok, MAX_NODE_NAME_LEN};
 pub unsafe fn next_devtree_token<'a>(
     buf: &'a [u8],
     off: &mut usize,
-) -> Result<Option<ParsedTok<'a>>, DevTreeError> {
+) -> Result<Option<ParsedTok<'a>>> {
     // These are guaranteed.
     // We only produce associated offsets that are aligned to 32 bits and within the buffer.
     debug_assert!(buf.as_ptr().add(*off) as usize % size_of::<u32>() == 0);
@@ -129,15 +131,13 @@ impl<'r, 'dt: 'r> DevTreeParseIter<'r, 'dt> {
     }
 }
 
-impl<'dt, 'a: 'dt> Iterator for DevTreeParseIter<'dt, 'a> {
+impl<'dt, 'a: 'dt> FallibleIterator for DevTreeParseIter<'dt, 'a> {
+    type Error = DevTreeError;
     type Item = ParsedTok<'a>;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Result<Option<Self::Item>> {
         // Safe because we're passing an unmodified (by us) offset.
         // next_devtree_token guaruntees alignment and out-of-bounds won't occur.
-        match unsafe { next_devtree_token(self.fdt.buf(), &mut self.offset) } {
-            Ok(tok) => tok,
-            _ => None,
-        }
+        unsafe { next_devtree_token(self.fdt.buf(), &mut self.offset) }
     }
 }
