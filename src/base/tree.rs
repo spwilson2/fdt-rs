@@ -88,7 +88,7 @@ impl<'dt> DevTree<'dt> {
     pub unsafe fn read_totalsize(buf: &[u8]) -> Result<usize> {
         // Verify provided buffer alignment
         verify_offset_aligned::<u32>(buf.as_ptr() as usize)
-            .map_err(|_| DevTreeError::InvalidParamter("Unaligned buffer provided"))?;
+            .map_err(|_| DevTreeError::InvalidParameter("Unaligned buffer provided"))?;
 
         // Verify provided buffer magic
         Self::verify_magic(buf)?;
