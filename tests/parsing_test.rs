@@ -1,9 +1,9 @@
 extern crate fdt_rs;
 
 use fdt_rs::base::DevTree;
+use fdt_rs::error::{DevTreeError, Result};
 use fdt_rs::index::DevTreeIndex;
 use fdt_rs::prelude::*;
-use fdt_rs::error::{DevTreeError, Result};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -11,7 +11,10 @@ use criterion::{criterion_group, criterion_main, Criterion};
 ///
 /// A simple wrapper around a normal iterator which will return Ok(Option<I::Item>)
 struct FBI<I: Iterator>(pub I);
-impl<I> FallibleIterator for FBI<I> where I:Iterator {
+impl<I> FallibleIterator for FBI<I>
+where
+    I: Iterator,
+{
     type Item = I::Item;
     type Error = DevTreeError;
 
@@ -136,7 +139,11 @@ fn node_prop_iter() {
 fn next_compatible_finds_initial_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt.compatible_nodes("riscv-virtio").next().unwrap().unwrap();
+        let node = fdt
+            .compatible_nodes("riscv-virtio")
+            .next()
+            .unwrap()
+            .unwrap();
         assert!(node.name().unwrap() == ""); // Root node has no "name"
     }
 }
@@ -145,7 +152,11 @@ fn next_compatible_finds_initial_node() {
 fn next_compatible_finds_final_node() {
     unsafe {
         let fdt = DevTree::new(FDT).unwrap();
-        let node = fdt.compatible_nodes("riscv,clint0").next().unwrap().unwrap();
+        let node = fdt
+            .compatible_nodes("riscv,clint0")
+            .next()
+            .unwrap()
+            .unwrap();
         assert!(node.name().unwrap() == "clint@2000000");
     }
 }

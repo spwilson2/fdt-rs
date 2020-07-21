@@ -40,8 +40,8 @@ pub struct DevTreeIndexIter<'a, 'i: 'a, 'dt: 'i> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeIndexNodeIter<'a, 'i:'a, 'dt:'i>(pub DevTreeIndexIter<'a, 'i, 'dt>);
-impl<'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
+pub struct DevTreeIndexNodeIter<'a, 'i: 'a, 'dt: 'i>(pub DevTreeIndexIter<'a, 'i, 'dt>);
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_node()
@@ -49,8 +49,8 @@ impl<'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexNodeIter<'a, 'i, 'dt> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeIndexPropIter<'a, 'i:'a, 'dt:'i>(pub DevTreeIndexIter<'a, 'i, 'dt>);
-impl<'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
+pub struct DevTreeIndexPropIter<'a, 'i: 'a, 'dt: 'i>(pub DevTreeIndexIter<'a, 'i, 'dt>);
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_prop()
@@ -58,8 +58,8 @@ impl<'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexPropIter<'a, 'i, 'dt> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeIndexNodePropIter<'a, 'i:'a, 'dt:'i>(pub DevTreeIndexIter<'a, 'i, 'dt>);
-impl<'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
+pub struct DevTreeIndexNodePropIter<'a, 'i: 'a, 'dt: 'i>(pub DevTreeIndexIter<'a, 'i, 'dt>);
+impl<'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
     type Item = DevTreeIndexProp<'a, 'i, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next_node_prop()
@@ -67,11 +67,11 @@ impl<'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexNodePropIter<'a, 'i, 'dt> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeIndexCompatibleNodeIter<'s, 'a, 'i:'a, 'dt:'i>{
+pub struct DevTreeIndexCompatibleNodeIter<'s, 'a, 'i: 'a, 'dt: 'i> {
     pub iter: DevTreeIndexIter<'a, 'i, 'dt>,
-    pub string: &'s str
+    pub string: &'s str,
 }
-impl<'s, 'a, 'i:'a, 'dt:'i> Iterator for DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> {
+impl<'s, 'a, 'i: 'a, 'dt: 'i> Iterator for DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> {
     type Item = DevTreeIndexNode<'a, 'i, 'dt>;
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next_compatible_node(self.string)
@@ -170,10 +170,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexIter<'a, 'i, 'dt> {
         }
     }
 
-    pub fn next_compatible_node(
-        &mut self,
-        string: &str,
-    ) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
+    pub fn next_compatible_node(&mut self, string: &str) -> Option<DevTreeIndexNode<'a, 'i, 'dt>> {
         // If there is another node, advance our iterator to that node.
         self.next_node().and_then(|_| {
             // Iterate through all remaining properties in the tree looking for the compatible

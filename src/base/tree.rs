@@ -184,11 +184,17 @@ impl<'dt> DevTree<'dt> {
 
     /// Returns the first [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
-    pub fn compatible_nodes<'s, 'a:'s>(&'a self, string: &'s str) -> DevTreeCompatibleNodeIter<'s, 'a, 'dt> {
-        DevTreeCompatibleNodeIter{iter: self.items(), string}
+    pub fn compatible_nodes<'s, 'a: 's>(
+        &'a self,
+        string: &'s str,
+    ) -> DevTreeCompatibleNodeIter<'s, 'a, 'dt> {
+        DevTreeCompatibleNodeIter {
+            iter: self.items(),
+            string,
+        }
     }
 
-    pub fn buf(& self) -> &'dt [u8] {
+    pub fn buf(&self) -> &'dt [u8] {
         self.buf
     }
 

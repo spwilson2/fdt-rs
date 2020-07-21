@@ -8,7 +8,7 @@ use num_traits::FromPrimitive;
 use crate::prelude::*;
 
 use crate::base::DevTree;
-use crate::error::{Result, DevTreeError};
+use crate::error::{DevTreeError, Result};
 use crate::priv_util::SliceRead;
 use crate::spec::{fdt_prop_header, FdtTok, MAX_NODE_NAME_LEN};
 

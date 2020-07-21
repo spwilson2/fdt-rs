@@ -4,7 +4,7 @@ use super::*;
 use crate::prelude::*;
 
 use crate::base::iters::{DevTreeIter, DevTreeNodePropIter};
-use crate::error::{Result};
+use crate::error::Result;
 
 /// A handle to a Device Tree Node within the device tree.
 #[derive(Clone)]

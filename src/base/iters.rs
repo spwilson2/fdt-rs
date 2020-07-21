@@ -7,7 +7,7 @@ use crate::prelude::*;
 
 use crate::base::parse::{next_devtree_token, ParsedTok};
 use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
-use crate::error::{Result, DevTreeError};
+use crate::error::{DevTreeError, Result};
 use crate::spec::fdt_reserve_entry;
 
 use fallible_iterator::FallibleIterator;
@@ -75,8 +75,8 @@ pub struct DevTreeIter<'a, 'dt: 'a> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeNodeIter<'a, 'dt:'a>(pub DevTreeIter<'a, 'dt>);
-impl<'a, 'dt:'a> FallibleIterator for DevTreeNodeIter<'a, 'dt> {
+pub struct DevTreeNodeIter<'a, 'dt: 'a>(pub DevTreeIter<'a, 'dt>);
+impl<'a, 'dt: 'a> FallibleIterator for DevTreeNodeIter<'a, 'dt> {
     type Item = DevTreeNode<'a, 'dt>;
     type Error = DevTreeError;
     fn next(&mut self) -> Result<Option<Self::Item>> {
@@ -85,8 +85,8 @@ impl<'a, 'dt:'a> FallibleIterator for DevTreeNodeIter<'a, 'dt> {
 }
 
 #[derive(Clone)]
-pub struct DevTreePropIter<'a, 'dt:'a>(pub DevTreeIter<'a, 'dt>);
-impl<'a, 'dt:'a> FallibleIterator for DevTreePropIter<'a, 'dt> {
+pub struct DevTreePropIter<'a, 'dt: 'a>(pub DevTreeIter<'a, 'dt>);
+impl<'a, 'dt: 'a> FallibleIterator for DevTreePropIter<'a, 'dt> {
     type Error = DevTreeError;
     type Item = DevTreeProp<'a, 'dt>;
     fn next(&mut self) -> Result<Option<Self::Item>> {
@@ -95,8 +95,8 @@ impl<'a, 'dt:'a> FallibleIterator for DevTreePropIter<'a, 'dt> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeNodePropIter<'a, 'dt:'a>(pub DevTreeIter<'a, 'dt>);
-impl<'a, 'dt:'a> FallibleIterator for DevTreeNodePropIter<'a, 'dt> {
+pub struct DevTreeNodePropIter<'a, 'dt: 'a>(pub DevTreeIter<'a, 'dt>);
+impl<'a, 'dt: 'a> FallibleIterator for DevTreeNodePropIter<'a, 'dt> {
     type Error = DevTreeError;
     type Item = DevTreeProp<'a, 'dt>;
     fn next(&mut self) -> Result<Option<Self::Item>> {
@@ -105,11 +105,11 @@ impl<'a, 'dt:'a> FallibleIterator for DevTreeNodePropIter<'a, 'dt> {
 }
 
 #[derive(Clone)]
-pub struct DevTreeCompatibleNodeIter<'s, 'a, 'dt:'a>{
+pub struct DevTreeCompatibleNodeIter<'s, 'a, 'dt: 'a> {
     pub iter: DevTreeIter<'a, 'dt>,
-    pub string: &'s str
+    pub string: &'s str,
 }
-impl<'s, 'a, 'dt:'a> FallibleIterator for DevTreeCompatibleNodeIter<'s, 'a, 'dt> {
+impl<'s, 'a, 'dt: 'a> FallibleIterator for DevTreeCompatibleNodeIter<'s, 'a, 'dt> {
     type Error = DevTreeError;
     type Item = DevTreeNode<'a, 'dt>;
     fn next(&mut self) -> Result<Option<Self::Item>> {
@@ -207,27 +207,21 @@ impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
         }
     }
 
-    pub fn next_compatible_node(
-        &mut self,
-        string: &str,
-    ) -> Result<Option<DevTreeNode<'a, 'dt>>> {
+    pub fn next_compatible_node(&mut self, string: &str) -> Result<Option<DevTreeNode<'a, 'dt>>> {
         // If there is another node, advance our iterator to that node.
         self.next_node().and_then(|_| {
             // Iterate through all remaining properties in the tree looking for the compatible
             // string.
             loop {
                 match self.next_prop() {
-                    Ok(Some(prop)) => {
-                        unsafe {
-                            if prop.name()? == "compatible" && prop.get_str()? == string {
-                                return Ok(Some(prop.node()));
-                            }
-                            continue;
+                    Ok(Some(prop)) => unsafe {
+                        if prop.name()? == "compatible" && prop.get_str()? == string {
+                            return Ok(Some(prop.node()));
                         }
+                        continue;
                     },
                     Ok(None) => return Ok(None),
                     Err(e) => return Err(e),
-
                 }
             }
         })

@@ -219,12 +219,12 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
                 ParsedTok::BeginNode(node) => {
                     builder.parsed_node(&node)?;
                     return Ok(builder);
-                },
+                }
                 ParsedTok::Nop => continue,
                 _ => break,
             }
         }
-        return Err(DevTreeError::ParseError)
+        return Err(DevTreeError::ParseError);
     }
 
     pub fn get_layout(fdt: &'i DevTree<'dt>) -> Result<Layout, DevTreeError> {
@@ -324,8 +324,14 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
         DevTreeIndexIter::new(self)
     }
 
-    pub fn compatible_nodes<'a, 's>(&'a self, string: &'s str) -> DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> {
-        DevTreeIndexCompatibleNodeIter{iter: self.items(), string}
+    pub fn compatible_nodes<'a, 's>(
+        &'a self,
+        string: &'s str,
+    ) -> DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> {
+        DevTreeIndexCompatibleNodeIter {
+            iter: self.items(),
+            string,
+        }
     }
 
     #[must_use]

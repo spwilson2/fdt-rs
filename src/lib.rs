@@ -34,8 +34,8 @@ extern crate endian_type_rs as endian_type;
 extern crate memoffset;
 #[macro_use]
 extern crate static_assertions;
-extern crate unsafe_unwrap;
 extern crate fallible_iterator;
+extern crate unsafe_unwrap;
 
 pub mod base;
 pub mod error;
