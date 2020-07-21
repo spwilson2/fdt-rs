@@ -10,18 +10,10 @@ test-stable:
 
   - cargo test --no-default-features --tests --verbose --jobs 1
   - cargo test --no-default-features --tests --verbose --jobs 1 --release
-  - cargo test --no-default-features --features doctest --doc --verbose --jobs 1
-  - cargo test --no-default-features --features doctest --doc --verbose --jobs 1 --release
 
-  - cargo test --features ascii --tests --verbose --jobs 1
-  - cargo test --features ascii --tests --verbose --jobs 1 --release
-  - cargo test --features ascii --features doctest --doc --verbose --jobs 1
-  - cargo test --features ascii --features doctest --doc --verbose --jobs 1 --release
-
-  - cargo test --features ascii --no-default-features --tests --verbose --jobs 1
-  - cargo test --features ascii --no-default-features --tests --verbose --jobs 1 --release
-  - cargo test --features ascii --no-default-features --features doctest --doc --verbose --jobs 1
-  - cargo test --features ascii --no-default-features --features doctest --doc --verbose --jobs 1 --release
+  # Disabled, we use some std utilites to enable doctests
+  #- cargo test --no-default-features --features doctest --doc --verbose --jobs 1
+  #- cargo test --no-default-features --features doctest --doc --verbose --jobs 1 --release
   cache:
     key: stable-build-cache
 
@@ -36,18 +28,10 @@ test-nightly:
 
   - cargo +nightly test --no-default-features --tests --verbose --jobs 1
   - cargo +nightly test --no-default-features --tests --verbose --jobs 1 --release
-  - cargo +nightly test --no-default-features --features doctest --doc --verbose --jobs 1
-  - cargo +nightly test --no-default-features --features doctest --doc --verbose --jobs 1 --release
+  # Disabled, we use some std utilites to enable doctests
+  #- cargo +nightly test --no-default-features --features doctest --doc --verbose --jobs 1
+  #- cargo +nightly test --no-default-features --features doctest --doc --verbose --jobs 1 --release
 
-  - cargo +nightly test --features ascii --tests --verbose --jobs 1
-  - cargo +nightly test --features ascii --tests --verbose --jobs 1 --release
-  - cargo +nightly test --features ascii --features doctest --doc --verbose --jobs 1
-  - cargo +nightly test --features ascii --features doctest --doc --verbose --jobs 1 --release
-
-  - cargo +nightly test --features ascii --no-default-features --tests --verbose --jobs 1
-  - cargo +nightly test --features ascii --no-default-features --tests --verbose --jobs 1 --release
-  - cargo +nightly test --features ascii --no-default-features --features doctest --doc --verbose --jobs 1
-  - cargo +nightly test --features ascii --no-default-features --features doctest --doc --verbose --jobs 1 --release
   cache:
     key: nightly-build-cache
     paths:
@@ -67,9 +51,7 @@ clippy:
   - rustup component add clippy
   script:
   - cargo clippy -- -D warnings
-  - cargo clippy --features ascii -- -D warnings
   - cargo clippy --no-default-features -- -D warnings
-  - cargo clippy --features ascii --no-default-features -- -D warnings
   cache:
     key: stable-build-cache
 
