@@ -1,5 +1,11 @@
 # fdt-rs
 
+[![crates.io](https://img.shields.io/crates/v/fdt-rs)](https://crates.io/crates/fdt-rs)
+[![](https://img.shields.io/crates/d/fdt-rs.svg)](https://crates.io/crates/fdt-rs)
+[![](https://docs.rs/fdt-rs/badge.svg)](https://docs.rs/fdt-rs/)
+[![](https://gitlab.com/ertos/fdt-rs/badges/master/pipeline.svg?key_text=build)](https://gitlab.com/ertos/fdt-rs)
+[![](https://gitlab.com/ertos/fdt-rs/badges/master/coverage.svg?style=flat)](https://gitlab.com/ertos/fdt-rs)
+
 A Flattened Device Tree parser for embedded no-std environments
 
 ## Usage
