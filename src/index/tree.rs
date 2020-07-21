@@ -224,7 +224,7 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
                 _ => break,
             }
         }
-        return Err(DevTreeError::ParseError);
+        Err(DevTreeError::ParseError)
     }
 
     pub fn get_layout(fdt: &'i DevTree<'dt>) -> Result<Layout, DevTreeError> {

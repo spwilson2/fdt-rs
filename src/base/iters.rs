@@ -180,7 +180,7 @@ impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
         loop {
             match self.next() {
                 Ok(Some(DevTreeItem::Prop(p))) => return Ok(Some(p)),
-                Ok(Some(p)) => continue,
+                Ok(Some(_p)) => continue,
                 Ok(None) => return Ok(None),
                 Err(e) => return Err(e),
             }
@@ -191,7 +191,7 @@ impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
         loop {
             match self.next() {
                 Ok(Some(DevTreeItem::Node(n))) => return Ok(Some(n)),
-                Ok(Some(p)) => continue,
+                Ok(Some(_p)) => continue,
                 Ok(None) => return Ok(None),
                 Err(e) => return Err(e),
             }
