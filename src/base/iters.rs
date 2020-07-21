@@ -7,8 +7,7 @@ use crate::prelude::*;
 
 use crate::base::parse::{next_devtree_token, ParsedTok};
 use crate::base::{DevTree, DevTreeItem, DevTreeNode, DevTreeProp};
-use crate::common::iter::{TreeCompatibleNodeIter, TreeNodeIter, TreeNodePropIter, TreePropIter};
-use crate::error::DevTreeError;
+use crate::error::{Result};
 use crate::spec::fdt_reserve_entry;
 
 /// An iterator over [`fdt_reserve_entry`] objects within the FDT.
@@ -32,7 +31,7 @@ impl<'a, 'dt: 'a> DevTreeReserveEntryIter<'a, 'dt> {
     ///
     /// The caller must verify that the current offset of this iterator is 32-bit aligned.
     /// (Each field is 32-bit aligned and they may be read individually.)
-    unsafe fn read(&'a self) -> Result<&'dt fdt_reserve_entry, DevTreeError> {
+    unsafe fn read(&'a self) -> Result<&'dt fdt_reserve_entry> {
         Ok(&*self.fdt.ptr_at(self.offset)?)
     }
 }
@@ -73,7 +72,44 @@ pub struct DevTreeIter<'a, 'dt: 'a> {
     pub(crate) fdt: &'a DevTree<'dt>,
 }
 
-impl<'a, 'dt: 'a> TreeIterator<'a, 'dt, DevTreeItem<'a, 'dt>> for DevTreeIter<'a, 'dt> {}
+#[derive(Clone)]
+pub struct DevTreeNodeIter<'a, 'dt:'a>(pub DevTreeIter<'a, 'dt>);
+impl<'a, 'dt:'a> Iterator for DevTreeNodeIter<'a, 'dt> {
+    type Item = DevTreeNode<'a, 'dt>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next_node()
+    }
+}
+
+#[derive(Clone)]
+pub struct DevTreePropIter<'a, 'dt:'a>(pub DevTreeIter<'a, 'dt>);
+impl<'a, 'dt:'a> Iterator for DevTreePropIter<'a, 'dt> {
+    type Item = DevTreeProp<'a, 'dt>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next_prop()
+    }
+}
+
+#[derive(Clone)]
+pub struct DevTreeNodePropIter<'a, 'dt:'a>(pub DevTreeIter<'a, 'dt>);
+impl<'a, 'dt:'a> Iterator for DevTreeNodePropIter<'a, 'dt> {
+    type Item = DevTreeProp<'a, 'dt>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next_node_prop()
+    }
+}
+
+#[derive(Clone)]
+pub struct DevTreeCompatibleNodeIter<'s, 'a, 'dt:'a>{
+    pub iter: DevTreeIter<'a, 'dt>,
+    pub string: &'s str
+}
+impl<'s, 'a, 'dt:'a> Iterator for DevTreeCompatibleNodeIter<'s, 'a, 'dt> {
+    type Item = DevTreeNode<'a, 'dt>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next_compatible_node(self.string)
+    }
+}
 
 impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
     pub fn new(fdt: &'a DevTree<'dt>) -> Self {
@@ -131,6 +167,63 @@ impl<'a, 'dt: 'a> DevTreeIter<'a, 'dt> {
             }
         }
     }
+
+    pub fn next_prop(&mut self) -> Option<DevTreeProp<'a, 'dt>> {
+        loop {
+            match self.next() {
+                Some(item) => {
+                    if let Some(prop) = item.prop() {
+                        return Some(prop);
+                    }
+                    // Continue if a new node.
+                    continue;
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    pub fn next_node(&mut self) -> Option<DevTreeNode<'a, 'dt>> {
+        loop {
+            match self.next() {
+                Some(item) => {
+                    if let Some(node) = item.node() {
+                        return Some(node);
+                    }
+                    // Continue if a new prop.
+                    continue;
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    pub fn next_node_prop(&mut self) -> Option<DevTreeProp<'a, 'dt>> {
+        match self.next() {
+            // Return if a new node or an EOF.
+            Some(item) => item.prop(),
+            _ => None,
+        }
+    }
+
+    pub fn next_compatible_node(
+        &mut self,
+        string: &str,
+    ) -> Option<DevTreeNode<'a, 'dt>> {
+        // If there is another node, advance our iterator to that node.
+        self.next_node().and_then(|_| {
+            // Iterate through all remaining properties in the tree looking for the compatible
+            // string.
+            while let Some(prop) = self.next_prop() {
+                unsafe {
+                    if prop.name().ok()? == "compatible" && prop.get_str().ok()? == string {
+                        return Some(prop.node());
+                    }
+                }
+            }
+            None
+        })
+    }
 }
 
 impl<'a, 'dt: 'a> Iterator for DevTreeIter<'a, 'dt> {
@@ -140,13 +233,3 @@ impl<'a, 'dt: 'a> Iterator for DevTreeIter<'a, 'dt> {
         self.next_devtree_item()
     }
 }
-
-/// An iterator over [`DevTreeNode`] objects in the [`DevTree`]
-pub type DevTreeNodeIter<'a, 'dt> =
-    TreeNodeIter<'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;
-pub type DevTreeNodePropIter<'a, 'dt> =
-    TreeNodePropIter<'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;
-pub type DevTreePropIter<'a, 'dt> =
-    TreePropIter<'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;
-pub type DevTreeCompatibleNodeIter<'s, 'a, 'dt> =
-    TreeCompatibleNodeIter<'s, 'a, 'dt, DevTreeIter<'a, 'dt>, DevTreeItem<'a, 'dt>>;

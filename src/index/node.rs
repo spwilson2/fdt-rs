@@ -28,7 +28,7 @@ impl<'a, 'i: 'a, 'dt: 'i> DevTreeIndexNode<'a, 'i, 'dt> {
     }
 
     pub fn props(&self) -> DevTreeIndexNodePropIter<'a, 'i, 'dt> {
-        DevTreeIndexNodePropIter::from(DevTreeIndexIter::from_node(self.clone()))
+        DevTreeIndexNodePropIter(DevTreeIndexIter::from_node(self.clone()))
     }
 
     pub fn parent(&self) -> Option<Self> {

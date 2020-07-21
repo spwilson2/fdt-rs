@@ -46,3 +46,6 @@ impl From<Utf8Error> for DevTreeError {
         DevTreeError::StrError(e)
     }
 }
+
+/// The result of a parse.
+pub type Result<T> = core::result::Result<T, DevTreeError>;

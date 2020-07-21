@@ -2,6 +2,8 @@ use crate::base::iters::DevTreeIter;
 use crate::base::{DevTree, DevTreeNode};
 use crate::prelude::*;
 
+use unsafe_unwrap::UnsafeUnwrap;
+
 /// A handle to a [`DevTreeNode`]'s Device Tree Property
 #[derive(Clone)]
 pub struct DevTreeProp<'a, 'dt: 'a> {
@@ -31,7 +33,9 @@ impl<'r, 'dt: 'r> PropReader<'dt> for DevTreeProp<'r, 'dt> {
     /// Returns the node which this property is attached to
     #[must_use]
     fn node(&self) -> DevTreeNode<'r, 'dt> {
-        self.parent_iter.clone().next_node().unwrap()
+        unsafe {
+            self.parent_iter.clone().next_node().unsafe_unwrap()
+        }
     }
 }
 

@@ -1,8 +1,6 @@
 #[cfg(doc)]
 use crate::base::*;
 
-use crate::prelude::*;
-
 use core::mem::size_of;
 
 use crate::error::DevTreeError;
@@ -166,42 +164,34 @@ impl<'dt> DevTree<'dt> {
     pub fn reserved_entries(&self) -> DevTreeReserveEntryIter {
         DevTreeReserveEntryIter::new(self)
     }
-}
-
-impl<'s, 'a, 'dt: 'a> IterableDevTree<'s, 'a, 'dt> for DevTree<'dt> {
-    type TreeNode = DevTreeNode<'a, 'dt>;
-    type TreeIter = DevTreeIter<'a, 'dt>;
-    type NodeIter = DevTreeNodeIter<'a, 'dt>;
-    type PropIter = DevTreePropIter<'a, 'dt>;
-    type CompatibleIter = DevTreeCompatibleNodeIter<'s, 'a, 'dt>;
 
     /// Returns an iterator over [`DevTreeNode`] objects
-    fn nodes(&'a self) -> Self::NodeIter {
-        DevTreeNodeIter::from(DevTreeIter::new(self))
+    pub fn nodes(&self) -> DevTreeNodeIter<'_, 'dt> {
+        DevTreeNodeIter(DevTreeIter::new(self))
     }
 
     #[must_use]
-    fn props(&'a self) -> Self::PropIter {
-        DevTreePropIter::from(DevTreeIter::new(self))
+    pub fn props(&self) -> DevTreePropIter<'_, 'dt> {
+        DevTreePropIter(DevTreeIter::new(self))
     }
 
     /// Returns an iterator over objects within the [`DevTreeItem`] enum
-    fn items(&'a self) -> Self::TreeIter {
+    pub fn items(&self) -> DevTreeIter<'_, 'dt> {
         DevTreeIter::new(self)
     }
 
     /// Returns the first [`DevTreeNode`] object with the provided compatible device tree property
     /// or `None` if none exists.
-    fn compatible_nodes(&'a self, string: &'s str) -> Self::CompatibleIter {
-        DevTreeCompatibleNodeIter::new(self.items(), string)
+    pub fn compatible_nodes<'s, 'a:'s>(&'a self, string: &'s str) -> DevTreeCompatibleNodeIter<'s, 'a, 'dt> {
+        DevTreeCompatibleNodeIter{iter: self.items(), string}
     }
 
-    fn buf(&'a self) -> &'dt [u8] {
+    pub fn buf(& self) -> &'dt [u8] {
         self.buf
     }
 
     /// Returns the root [`DevTreeNode`] object of the device tree (if it exists).
-    fn root(&self) -> Option<DevTreeNode<'_, 'dt>> {
+    pub fn root(&self) -> Option<DevTreeNode<'_, 'dt>> {
         self.nodes().next()
     }
 }

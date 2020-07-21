@@ -309,41 +309,28 @@ impl<'i, 'dt: 'i> DevTreeIndex<'i, 'dt> {
     pub fn fdt(&self) -> &DevTree<'dt> {
         &self.fdt
     }
-}
-
-impl<'s, 'a, 'i: 'a, 'dt: 'i> IterableDevTree<'s, 'a, 'dt> for DevTreeIndex<'i, 'dt> {
-    type TreeNode = DevTreeIndexNode<'a, 'i, 'dt>;
-    type TreeIter = DevTreeIndexIter<'a, 'i, 'dt>;
-    type NodeIter = DevTreeIndexNodeIter<'a, 'i, 'dt>;
-    type PropIter = DevTreeIndexPropIter<'a, 'i, 'dt>;
-    type CompatibleIter = DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt>;
 
     #[must_use]
-    fn nodes(&'a self) -> Self::NodeIter {
-        Self::NodeIter::from(Self::TreeIter::new(self))
+    pub fn nodes(&self) -> DevTreeIndexNodeIter<'_, 'i, 'dt> {
+        DevTreeIndexNodeIter(self.items())
     }
 
     #[must_use]
-    fn props(&'a self) -> Self::PropIter {
-        Self::PropIter::from(Self::TreeIter::new(self))
+    pub fn props(&self) -> DevTreeIndexPropIter<'_, 'i, 'dt> {
+        DevTreeIndexPropIter(self.items())
     }
 
     #[must_use]
-    fn items(&'a self) -> Self::TreeIter {
-        Self::TreeIter::new(self)
+    pub fn items(&self) -> DevTreeIndexIter<'_, 'i, 'dt> {
+        DevTreeIndexIter::new(self)
     }
 
-    fn compatible_nodes(&'a self, string: &'s str) -> Self::CompatibleIter {
-        DevTreeIndexCompatibleNodeIter::new(self.items(), string)
+    pub fn compatible_nodes<'a, 's>(&'a self, string: &'s str) -> DevTreeIndexCompatibleNodeIter<'s, 'a, 'i, 'dt> {
+        DevTreeIndexCompatibleNodeIter{iter: self.items(), string}
     }
 
     #[must_use]
-    fn buf(&'a self) -> &'dt [u8] {
+    pub fn buf(&self) -> &'dt [u8] {
         self.fdt.buf()
-    }
-
-    #[must_use]
-    fn root(&'a self) -> Option<Self::TreeNode> {
-        Some(self.root())
     }
 }
