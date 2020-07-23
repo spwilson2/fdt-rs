@@ -1,3 +1,4 @@
+image: rust:slim
 stages:
   - setup
   - test
@@ -5,21 +6,26 @@ stages:
 cache: 
   key: build-cache
   paths: 
-    - /usr/local/cargo/
+    - cargo-registry
     - target/
 
 setup-rustup:
   stage: setup
-  image: 'rust:latest'
   script:
     - rustup toolchain update stable
     - rustup toolchain update beta
     - rustup toolchain update nightly
+  before_script:
+    - rm -rf /usr/local/cargo/registry || true
+    - mv cargo-registry /usr/local/cargo/registry || true
+  after_script:
+    - mv /usr/local/cargo/registry cargo-registry || true
 
 .test-template: &test-template
   stage: test
-  image: 'rust:latest'
   before_script:
+    - rm -rf /usr/local/cargo/registry || true
+    - mv cargo-registry /usr/local/cargo/registry || true
     - export RUST_BACKTRACE=1
     - rustup default "$RUST_TOOLCHAIN"
     - rustup --version
@@ -32,6 +38,8 @@ setup-rustup:
     - cargo test --features doctest --doc --jobs 1 --release
     - cargo test --no-default-features --tests --jobs 1
     - cargo test --no-default-features --tests --jobs 1 --release
+  after_script:
+    - mv /usr/local/cargo/registry cargo-registry || true
 
 test-stable:
   <<: *test-template
@@ -68,9 +76,8 @@ test-clippy:
   <<: *test-template
   variables:
     RUST_TOOLCHAIN: stable
-  before_script:
-    - rustup component add clippy
   script:
+    - rustup component add clippy
     - cargo clippy -- -D warnings
     - cargo clippy --no-default-features -- -D warnings
 
