@@ -4,6 +4,7 @@ stages:
 
 setup-rustup:
   stage: setup
+  image: 'rust:latest'
   script:
     - rustup toolchain update nightly
     - rustup toolchain update beta
