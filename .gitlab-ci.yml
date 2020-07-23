@@ -2,6 +2,12 @@ stages:
   - setup
   - test
 
+cache: 
+  key: build-cache
+  paths: 
+    - /usr/local/cargo/
+    - target/
+
 setup-rustup:
   stage: setup
   image: 'rust:latest'
@@ -9,17 +15,10 @@ setup-rustup:
     - rustup toolchain update stable
     - rustup toolchain update beta
     - rustup toolchain update nightly
-  cache: 
-    key: build-cache
-    paths: 
-      - /usr/local/cargo/
-      - target/
 
 .test-template: &test-template
   stage: test
   image: 'rust:latest'
-  cache: 
-    key: build-cache
   before_script:
     - export RUST_BACKTRACE=1
     - rustup default "$RUST_TOOLCHAIN"
