@@ -6,9 +6,9 @@ setup-rustup:
   stage: setup
   image: 'rust:latest'
   script:
-    - rustup toolchain update nightly
-    - rustup toolchain update beta
     - rustup toolchain update stable
+    - rustup toolchain update beta
+    - rustup toolchain update nightly
   cache: 
     key: build-cache
     paths: 
@@ -21,17 +21,18 @@ setup-rustup:
   cache: 
     key: build-cache
   before_script:
+    - export RUST_BACKTRACE=1
     - rustup default "$RUST_TOOLCHAIN"
     - rustup --version
     - rustc --version
     - cargo --version
   script:
-    - cargo test --tests --verbose --jobs 1
-    - cargo test --tests --verbose --jobs 1 --release
-    - cargo test --features doctest --doc --verbose --jobs 1
-    - cargo test --features doctest --doc --verbose --jobs 1 --release
-    - cargo test --no-default-features --tests --verbose --jobs 1
-    - cargo test --no-default-features --tests --verbose --jobs 1 --release
+    - cargo test --tests --jobs 1
+    - cargo test --tests --jobs 1 --release
+    - cargo test --features doctest --doc --jobs 1
+    - cargo test --features doctest --doc --jobs 1 --release
+    - cargo test --no-default-features --tests --jobs 1
+    - cargo test --no-default-features --tests --jobs 1 --release
 
 test-stable:
   <<: *test-template
@@ -61,6 +62,7 @@ test-fmt:
   variables:
     RUST_TOOLCHAIN: stable
   script:
+    - rustup component add rustfmt
     - cargo fmt --all --verbose -- --check
 
 test-clippy:
