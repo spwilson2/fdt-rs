@@ -1,14 +1,26 @@
+stages:
+  - setup
+  - test
+
+setup-rustup:
+  stage: setup
+  script:
+    - rustup toolchain update nightly
+    - rustup toolchain update beta
+    - rustup toolchain update stable
+  cache: 
+    key: build-cache
+    paths: 
+      - /usr/local/cargo/
+      - target/
+
 .test-template: &test-template
+  stage: test
   image: 'rust:latest'
   cache: 
-    key: "$RUST_TOOLCHAIN-build-cache"
-    paths: 
-      - cargo/
-      - target/
+    key: build-cache
   before_script:
-    - export CARGO_HOME="$CI_PROJECT_DIR/cargo"
     - rustup default "$RUST_TOOLCHAIN"
-    - rustup update
     - rustup --version
     - rustc --version
     - cargo --version
@@ -46,7 +58,7 @@ test-coverage:
 test-fmt:
   <<: *test-template
   variables:
-    RUSTUP_TOOLCHAIN: stable
+    RUST_TOOLCHAIN: stable
   script:
     - cargo fmt --all --verbose -- --check
 
@@ -67,5 +79,3 @@ test-docs:
   script:
     - rustc --version && cargo --version
     - cargo doc --no-deps
-
-
